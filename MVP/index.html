@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <title>天顶星查找器 - Stellarium版</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 40px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+
+        h1 {
+            text-align: center;
+            color: #2c3e50;
+        }
+
+        .input-group {
+            margin: 15px 0;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            color: #34495e;
+        }
+
+        input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #bdc3c7;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+
+        button {
+            width: 100%;
+            padding: 10px;
+            margin-top: 20px;
+            background: #3498db;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        button:hover {
+            background: #2980b9;
+        }
+
+        #result {
+            margin-top: 20px;
+            padding: 15px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            white-space: pre-wrap;
+            font-size: 16px;
+        }
+
+        .error {
+            color: #e74c3c;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>🌟 天顶星查找器</h1>
+
+    <div class="input-group">
+        <label for="latitude">纬度 Latitude:</label>
+        <input type="number" id="latitude" step="0.000001" placeholder="例如：39.9042（北京）">
+    </div>
+
+    <div class="input-group">
+        <label for="longitude">经度 Longitude:</label>
+        <input type="number" id="longitude" step="0.000001" placeholder="例如：116.4074（北京）">
+    </div>
+
+    <button id="findStarBtn">查找头顶的星星</button>
+
+    <div id="result"></div>
+
+    <script>
+        document.getElementById('findStarBtn').addEventListener('click', async () => {
+            const latitude = parseFloat(document.getElementById('latitude').value);
+            const longitude = parseFloat(document.getElementById('longitude').value);
+            const resultDiv = document.getElementById('result');
+            resultDiv.textContent = '查询中...';
+
+            if (isNaN(latitude) || isNaN(longitude)) {
+                resultDiv.innerHTML = '<span class="error">❌ 请正确输入纬度和经度！</span>';
+                return;
+            }
+
+            try {
+                // 通过Flask后端查找天顶星
+                const response = await fetch('http://127.0.0.1:5001/find_star', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        latitude: latitude,
+                        longitude: longitude
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    resultDiv.innerHTML = `✨ 头顶选中的天体：\n\n${data.info}`;
+                } else {
+                    resultDiv.innerHTML = `<span class="error">❌ ${data.error}</span>`;
+                }
+
+            } catch (error) {
+                console.error('请求失败:', error);
+                resultDiv.innerHTML = '<span class="error">❌ 请求失败，请确认：\n1. Stellarium 正在运行\n2. RemoteControl 插件已启用\n3. API端口8090正常开放</span>';
+            }
+        });
+    </script>
+</body>
+
+</html>
