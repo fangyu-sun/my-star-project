@@ -1,174 +1,107 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from datetime import datetime, timezone
-import requests
 import math
 import logging
 import traceback
-import json
+import astropy.units as u
+from astropy.coordinates import SkyCoord
+from astroquery.simbad import Simbad
+import warnings
+from astropy.utils.exceptions import AstropyWarning
+
+# Ignore Astropy warnings
+warnings.simplefilter('ignore', category=AstropyWarning)
 
 app = Flask(__name__)
 CORS(app)
 
-# 设置日志记录为DEBUG级别
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
+# Configure SIMBAD to return extra useful fields
+custom_simbad = Simbad()
+custom_simbad.add_votable_fields('plx_value', 'otype_txt', 'sp_type')
+
 def gmst_from_utc(utc_time: datetime) -> float:
-    """根据UTC时间计算GMST（单位：度）"""
+    """Calculate GMST from UTC"""
     jd = (utc_time - datetime(2000, 1, 1, 12, tzinfo=timezone.utc)).total_seconds() / 86400.0 + 2451545.0
     d = jd - 2451545.0
     gmst = 280.46061837 + 360.98564736629 * d
     return gmst % 360.0
 
 def local_sidereal_time(longitude: float, utc_time: datetime) -> float:
-    """根据经度和UTC时间计算LST（单位：度）"""
+    """Calculate LST from longitude and UTC"""
     gmst = gmst_from_utc(utc_time)
     lst = (gmst + longitude) % 360.0
     return lst
-
-def angular_distance(ra1_deg, dec1_deg, ra2_deg, dec2_deg):
-    """球面三角公式计算角距离"""
-    ra1 = math.radians(ra1_deg)
-    dec1 = math.radians(dec1_deg)
-    ra2 = math.radians(ra2_deg)
-    dec2 = math.radians(dec2_deg)
-
-    cos_d = math.sin(dec1) * math.sin(dec2) + math.cos(dec1) * math.cos(dec2) * math.cos(ra1 - ra2)
-    cos_d = min(1.0, max(-1.0, cos_d))  # 防止数值溢出
-    d = math.acos(cos_d)
-    return math.degrees(d)
-
-def set_stellarium_location(latitude, longitude):
-    """设置Stellarium的位置"""
-    url = "http://localhost:8090/api/location/setlocationfields"
-    data = {
-        "latitude": str(latitude),
-        "longitude": str(longitude),
-        "altitude": "0",
-        "name": "User Location"
-    }
-    headers = {
-        "Content-Type": "application/json"
-    }
-    try:
-        logger.debug(f"Setting location with data: {data}")
-        response = requests.post(url, json=data, headers=headers)
-        logger.debug(f"Location set response: {response.status_code} - {response.text}")
-        if response.status_code != 200:
-            logger.error(f"Failed to set location: {response.text}")
-            return False
-        return True
-    except Exception as e:
-        logger.error(f"Error setting location: {str(e)}")
-        logger.error(traceback.format_exc())
-        return False
-
-def set_view_to_zenith():
-    """设置视角垂直向上（天顶）"""
-    url = "http://localhost:8090/api/main/view"
-    data = {
-        "jNow": [0.0, 0.0, 1.0]
-    }
-    headers = {
-        "Content-Type": "application/json"
-    }
-    try:
-        logger.debug(f"About to POST to Stellarium - URL: {url}")
-        logger.debug(f"Request Headers: {headers}")
-        logger.debug(f"Request Body (JSON): {json.dumps(data)}")  # 打印发出去的内容，漂亮格式化
-
-        response = requests.post(url, json=data, headers=headers)
-
-        logger.debug(f"View set response: {response.status_code} - {response.text}")
-        
-        if response.status_code != 200:
-            logger.error(f"Failed to set view: {response.text}")
-            return False
-        return True
-    except Exception as e:
-        logger.error(f"Error setting view: {str(e)}")
-        return False
-
-def focus_on_center():
-    """尝试聚焦中心位置的天体"""
-    url = "http://localhost:8090/api/main/focus"
-    headers = {
-        "Content-Type": "application/json"
-    }
-    try:
-        logger.debug("Attempting to focus on center")
-        response = requests.post(url, headers=headers)
-        logger.debug(f"Focus response: {response.status_code} - {response.text}")
-        if response.status_code != 200:
-            logger.error(f"Failed to focus: {response.text}")
-            return False
-        return True
-    except Exception as e:
-        logger.error(f"Error focusing: {str(e)}")
-        logger.error(traceback.format_exc())
-        return False
-
-def get_current_object_info():
-    """获取当前选中天体的信息"""
-    url = "http://localhost:8090/api/main/status"
-    headers = {
-        "Content-Type": "application/json"
-    }
-    try:
-        logger.debug("Getting current object info")
-        response = requests.get(url, headers=headers)
-        logger.debug(f"Status response: {response.status_code} - {response.text}")
-        if response.status_code != 200:
-            logger.error(f"Failed to get status: {response.text}")
-            return None
-        return response.json()
-    except Exception as e:
-        logger.error(f"Error getting status: {str(e)}")
-        logger.error(traceback.format_exc())
-        return None
 
 @app.route('/find_star', methods=['POST'])
 def find_star():
     try:
         data = request.get_json()
-        logger.debug(f"Received request data: {data}")
+        logger.debug(f"Received data: {data}")
         
-        latitude = float(data['latitude'])
-        longitude = float(data['longitude'])
+        latitude = float(data.get('latitude', 0))
+        longitude = float(data.get('longitude', 0))
         
-        # 验证经纬度范围
         if not (-90 <= latitude <= 90) or not (-180 <= longitude <= 180):
             return jsonify({'error': 'Invalid coordinates'}), 400
 
-        # 1. 设置Stellarium位置
-        if not set_stellarium_location(latitude, longitude):
-            return jsonify({'error': 'Failed to set location in Stellarium'}), 500
+        utc_now = datetime.now(timezone.utc)
+        lst_deg = local_sidereal_time(longitude, utc_now)
+        
+        zenith_ra = lst_deg
+        zenith_dec = latitude
+        
+        logger.debug(f"Calculated Zenith -> RA: {zenith_ra}, Dec: {zenith_dec}")
+        
+        coord = SkyCoord(ra=zenith_ra, dec=zenith_dec, unit=(u.deg, u.deg), frame='icrs')
+        
+        # Search radius of 1 degree
+        result_table = custom_simbad.query_region(coord, radius=1.0 * u.deg)
+        
+        if result_table is None or len(result_table) == 0:
+            return jsonify({'error': 'No celestial objects found overhead (1° radius). Try again later!'}), 404
+            
+        # The result_table is sorted by distance from center by default. We'll pick the closest one.
+        best_obj = result_table[0]
+        
+        # Depending on SIMBAD response, these might be byte strings.
+        name = best_obj['MAIN_ID']
+        if isinstance(name, bytes): name = name.decode('utf-8')
+            
+        otype = best_obj['OTYPE_txt']
+        if isinstance(otype, bytes): otype = otype.decode('utf-8')
+            
+        sp_type = best_obj['SP_TYPE']
+        if isinstance(sp_type, bytes): sp_type = sp_type.decode('utf-8')
+        
+        distance_str = "Unknown"
+        # Check if parallax is valid
+        if 'PLX_VALUE' in result_table.colnames and not best_obj.mask['PLX_VALUE']:
+            plx_mas = best_obj['PLX_VALUE']
+            if plx_mas > 0:
+                distance_pc = 1000.0 / plx_mas
+                distance_ly = distance_pc * 3.26156
+                distance_str = f"{distance_ly:.2f} Light Years"
 
-        # 2. 设置视角垂直向上
-        if not set_view_to_zenith():
-            return jsonify({'error': 'Failed to set view to zenith'}), 500
-
-        # 3. 尝试聚焦中心位置的天体
-        if not focus_on_center():
-            return jsonify({'error': 'Failed to focus on center object'}), 500
-
-        # 4. 获取当前选中天体的信息
-        object_info = get_current_object_info()
-        if not object_info:
-            return jsonify({'error': 'Failed to get object information'}), 500
-
-        # 检查是否成功选中了天体
-        if 'selectioninfo' not in object_info or not object_info['selectioninfo'].strip():
-            return jsonify({'error': 'No object found at zenith'}), 404
-
-        # 返回天体信息
+        # Construct simple human-readable info text
+        info_text = f"Name: {name}\nType: {otype}\nDistance: {distance_str}"
+        if sp_type:
+            info_text += f"\nSpectral Type: {sp_type}"
+        
         return jsonify({
-            'info': object_info.get('selectioninfo', 'No information available')
+            'name': name,
+            'type': otype,
+            'distance': distance_str,
+            'ra': f"{zenith_ra:.4f}°",
+            'dec': f"{zenith_dec:.4f}°",
+            'info': info_text
         })
 
     except Exception as e:
-        logger.error(f"Unexpected error: {str(e)}")
+        logger.error(f"Error: {e}")
         logger.error(traceback.format_exc())
         return jsonify({'error': str(e)}), 500
 
