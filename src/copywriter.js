@@ -23,6 +23,8 @@ export function generateCopy(celestialObj) {
         return `此刻，月亮${positionPhrase}。`;
     } else if (isPlanet) {
         return `距离地球 ${distanceStr} 的${name}，${positionPhrase}。`;
+    } else if (isSatellite) {
+        return `此刻，运行于地球上方 ${distanceStr} 的${name}，正疾速掠过你的天顶。`;
     } else {
         return `此刻，一颗 ${distanceStr} 外的${name}，${positionPhrase}。`;
     }

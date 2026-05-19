@@ -2,6 +2,44 @@ import './style.css'
 import { getBestZenithObject } from './astronomy.js'
 import { generateCopy } from './copywriter.js'
 
+let activeSatellites = [];
+
+async function loadActiveSatellites() {
+  try {
+    const response = await fetch('https://tle.ivanstanojevic.me/api/tle/?page-size=50&sort=popularity');
+    const data = await response.json();
+    if (data && data.member && data.member.length > 0) {
+      activeSatellites = data.member.map(sat => ({
+        satelliteId: sat.satelliteId,
+        name: sat.name,
+        line1: sat.line1,
+        line2: sat.line2
+      }));
+    }
+  } catch (e) {
+    console.warn("Failed to fetch dynamic TLEs, falling back to local database.", e);
+  }
+  
+  try {
+    const responseStarlink = await fetch('https://tle.ivanstanojevic.me/api/tle/?search=STARLINK&page-size=40');
+    const dataStarlink = await responseStarlink.json();
+    if (dataStarlink && dataStarlink.member && dataStarlink.member.length > 0) {
+      const starlinks = dataStarlink.member.map(sat => ({
+        satelliteId: sat.satelliteId,
+        name: sat.name,
+        line1: sat.line1,
+        line2: sat.line2
+      }));
+      activeSatellites = [...activeSatellites, ...starlinks];
+    }
+  } catch (err) {
+    console.warn("Failed to fetch Starlink TLEs.", err);
+  }
+}
+
+// Start loading immediately on page load
+loadActiveSatellites();
+
 const introScreen = document.getElementById('intro');
 const loadingScreen = document.getElementById('loading');
 const broadcasterScreen = document.getElementById('broadcaster');
@@ -26,45 +64,36 @@ startBtn.addEventListener('click', () => {
 
   let cityString = "未知地点";
   let updateInterval;
-  let currentBest;
-
-  function displayBest(obj) {
-    if (!obj) {
-      mainCopyEl.textContent = "此刻的天顶深处，仅余无垠暗空。";
-      metaInfoEl.innerHTML = "";
-      return;
-    }
-    const copy = generateCopy(obj);
-    // If the object changed, fade out/in
-    if (!currentBest || obj.id !== currentBest.id) {
-      // fade out
-      mainCopyEl.style.opacity = '0';
-      metaInfoEl.style.opacity = '0';
-      setTimeout(() => {
-        mainCopyEl.textContent = copy;
-        mainCopyEl.style.opacity = '1';
-        // Update meta info immediately after fade-in
-        const offZenith = (90 - obj.altitude).toFixed(1);
-        metaInfoEl.innerHTML = `${obj.id.toUpperCase()} &nbsp;&middot; ALTITUDE ${obj.altitude.toFixed(1)}° &nbsp;&middot; ZENITH OFFSET ${offZenith}°`;
-        metaInfoEl.style.opacity = '1';
-        currentBest = obj;
-      }, 500);
-    } else {
-      // same object, just update altitude & offset
-      mainCopyEl.textContent = copy;
-      const offZenith = (90 - obj.altitude).toFixed(1);
-      metaInfoEl.innerHTML = `${obj.id.toUpperCase()} &nbsp;&middot; ALTITUDE ${obj.altitude.toFixed(1)}° &nbsp;&middot; ZENITH OFFSET ${offZenith}°`;
-    }
-  }
 
   function updateBroadcaster(lat, lon) {
     const date = new Date();
     const timeString = date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+    
     if (locationTimeInfoEl) {
       locationTimeInfoEl.textContent = `${cityString} · ${timeString}`;
     }
-    const bestObj = getBestZenithObject(lat, lon, date);
-    displayBest(bestObj);
+    
+    try {
+      const bestObj = getBestZenithObject(lat, lon, date, activeSatellites);
+      const copy = generateCopy(bestObj);
+      
+      if (mainCopyEl.textContent !== copy) {
+        mainCopyEl.textContent = copy;
+      }
+      
+      if (bestObj) {
+        const offZenith = (90 - bestObj.altitude).toFixed(1);
+        if (bestObj.isSatellite) {
+          metaInfoEl.innerHTML = `${bestObj.name.toUpperCase()} &nbsp;&middot;&nbsp; ALTITUDE ${bestObj.altitude.toFixed(1)}&deg; &nbsp;&middot;&nbsp; RANGE ${bestObj.distanceStr}`;
+        } else {
+          metaInfoEl.innerHTML = `${bestObj.id.toUpperCase()} &nbsp;&middot;&nbsp; ALTITUDE ${bestObj.altitude.toFixed(1)}&deg; &nbsp;&middot;&nbsp; ZENITH OFFSET ${offZenith}&deg;`;
+        }
+      } else {
+        metaInfoEl.innerHTML = `LAT ${lat.toFixed(2)} &nbsp;&middot;&nbsp; LON ${lon.toFixed(2)}`;
+      }
+    } catch (e) {
+      console.error(e);
+    }
   }
 
   navigator.geolocation.getCurrentPosition(
@@ -81,17 +110,14 @@ startBtn.addEventListener('click', () => {
           cityString = `${lat.toFixed(2)}, ${lon.toFixed(2)}`;
           updateBroadcaster(lat, lon);
         });
-        // Define a helper to start interval updates
-        function startUpdates(lat, lon) {
-          // Ensure only one interval runs
-          if (updateInterval) clearInterval(updateInterval);
-          updateInterval = setInterval(() => {
-            updateBroadcaster(lat, lon);
-          }, 5000);
-          // Initial display
-          updateBroadcaster(lat, lon);
-        }
-        startUpdates(lat, lon);
+      
+      updateBroadcaster(lat, lon);
+
+      if (updateInterval) clearInterval(updateInterval);
+      updateInterval = setInterval(() => {
+        updateBroadcaster(lat, lon);
+      }, 1000);
+      
       // Wait a bit to simulate searching and let the animation play out
       setTimeout(() => {
         switchScreen(broadcasterScreen);
@@ -99,15 +125,8 @@ startBtn.addEventListener('click', () => {
     },
     (error) => {
       console.error(error);
-      // Fallback to Beijing coordinates
-      const lat = 39.9042;
-      const lon = 116.4074;
-      cityString = '北京';
-      startUpdates(lat, lon);
-      // Switch to broadcaster after brief delay
-      setTimeout(() => {
-        switchScreen(broadcasterScreen);
-      }, 2000);
+      alert('无法获取您的位置，请检查权限。');
+      switchScreen(introScreen);
     },
     { timeout: 10000, enableHighAccuracy: false }
   );

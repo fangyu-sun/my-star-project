@@ -2,6 +2,8 @@ import { Observer, Body, Equator, Horizon } from 'astronomy-engine';
 import famousStars from './data/stars.json';
 import hygStars from './data/hyg_stars.json';
 import { constellations } from './data/constellations.js';
+import { getSatelliteLookAngles } from './satellite_engine.js';
+import fallbackSatellites from './data/satellites_fallback.json';
 
 const planets = [
     { id: 'Sun', name: '太阳', isPlanet: true },
@@ -12,7 +14,7 @@ const planets = [
     { id: 'Saturn', name: '土星', isPlanet: true }
 ];
 
-export function getBestZenithObject(lat, lon, date) {
+export function getBestZenithObject(lat, lon, date, activeSatellites) {
     const observer = new Observer(lat, lon, 0);
     const candidates = [];
 
@@ -71,13 +73,31 @@ export function getBestZenithObject(lat, lon, date) {
             });
         }
     }
+    
+    // Evaluate Satellites
+    const satsToEvaluate = (activeSatellites && activeSatellites.length > 0) ? activeSatellites : fallbackSatellites;
+    for (const sat of satsToEvaluate) {
+        const look = getSatelliteLookAngles(sat.line1, sat.line2, lat, lon, date);
+        if (look && look.elevation >= 80) {
+            candidates.push({
+                id: sat.satelliteId ? `sat_${sat.satelliteId}` : sat.name,
+                name: sat.name,
+                altitude: look.elevation,
+                distanceStr: look.range.toFixed(0) + " 公里",
+                isPlanet: false,
+                isFamous: false,
+                isSatellite: true
+            });
+        }
+    }
 
     // Scoring system
     // Base score is normalized altitude: (altitude / 90)
     // Multipliers give preference to more "interesting" objects
     candidates.forEach(c => {
         let weight = 1.0;
-        if (c.id === 'Moon' || c.id === 'Sun') weight = 1.5;
+        if (c.isSatellite) weight = 2.0;
+        else if (c.id === 'Moon' || c.id === 'Sun') weight = 1.5;
         else if (c.isPlanet) weight = 1.3;
         else if (c.isFamous) weight = 1.2;
         else weight = 1.0;
