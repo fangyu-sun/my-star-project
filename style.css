@@ -168,25 +168,38 @@ body {
 .lang-inline-opt {
   color: #444; /* Premium dark gray */
   cursor: pointer;
-  transition: all 0.2s cubic-bezier(0.25, 1, 0.5, 1); /* responsive low-latency cubic curve */
   padding: 0.3rem 0.6rem;
   border-radius: 2px;
+  /* Extra slow, high-end transition for the gradual lighting-up feel */
+  transition: color 0.8s cubic-bezier(0.215, 0.61, 0.355, 1), 
+              text-shadow 0.8s cubic-bezier(0.215, 0.61, 0.355, 1);
 }
 
 .lang-inline-opt:hover {
-  color: #fff; /* Deep gray transitions smoothly to pure white on hover */
-  text-shadow: 0 0 8px rgba(255, 255, 255, 0.35);
+  color: #888; /* Transitions to the exact intro paragraph color on hover */
+  text-shadow: 0 0 6px rgba(136, 136, 136, 0.3);
 }
 
 .lang-inline-opt.active {
-  color: #fff;
-  background: linear-gradient(90deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.01) 100%);
-  box-shadow: 0 0 12px rgba(255, 255, 255, 0.06);
-  transform: scale(1.02);
-  text-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+  color: #888; /* Match the intro paragraph color exactly */
+  background: transparent;
+  box-shadow: none;
+  transform: none;
+  animation: inlineLangBreathe 3s infinite alternate ease-in-out;
 }
 
 .lang-inline-sep {
-  color: #1a1a1a; /* Subtle dark separator */
+  color: #222; /* Subtle dark separator */
   pointer-events: none;
+}
+
+@keyframes inlineLangBreathe {
+  0% {
+    color: #666;
+    text-shadow: 0 0 2px rgba(136, 136, 136, 0.15);
+  }
+  100% {
+    color: #888;
+    text-shadow: 0 0 12px rgba(136, 136, 136, 0.45);
+  }
 }
