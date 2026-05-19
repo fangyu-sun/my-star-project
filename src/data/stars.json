@@ -1,0 +1,17 @@
+[
+  { "id": "sirius", "name": "天狼星", "distance": 8.6, "ra": 6.752, "dec": -16.716, "mag": -1.46 },
+  { "id": "canopus", "name": "老人星", "distance": 310, "ra": 6.399, "dec": -52.696, "mag": -0.74 },
+  { "id": "vega", "name": "织女星", "distance": 25, "ra": 18.615, "dec": 38.784, "mag": 0.03 },
+  { "id": "arcturus", "name": "大角星", "distance": 36.7, "ra": 14.261, "dec": 19.182, "mag": -0.05 },
+  { "id": "rigel", "name": "参宿七", "distance": 860, "ra": 5.242, "dec": -8.201, "mag": 0.13 },
+  { "id": "betelgeuse", "name": "参宿四", "distance": 640, "ra": 5.919, "dec": 7.407, "mag": 0.42 },
+  { "id": "procyon", "name": "南河三", "distance": 11.4, "ra": 7.655, "dec": 5.225, "mag": 0.34 },
+  { "id": "achernar", "name": "水委一", "distance": 144, "ra": 1.628, "dec": -57.236, "mag": 0.46 },
+  { "id": "altair", "name": "牛郎星", "distance": 16.7, "ra": 19.846, "dec": 8.868, "mag": 0.76 },
+  { "id": "aldebaran", "name": "毕宿五", "distance": 65, "ra": 4.598, "dec": 16.509, "mag": 0.87 },
+  { "id": "antares", "name": "心宿二", "distance": 550, "ra": 16.490, "dec": -26.432, "mag": 1.06 },
+  { "id": "spica", "name": "角宿一", "distance": 250, "ra": 13.419, "dec": -11.161, "mag": 1.04 },
+  { "id": "pollux", "name": "北河三", "distance": 34, "ra": 7.755, "dec": 28.026, "mag": 1.14 },
+  { "id": "fomalhaut", "name": "北落师门", "distance": 25, "ra": 22.960, "dec": -29.622, "mag": 1.16 },
+  { "id": "deneb", "name": "天津四", "distance": 2600, "ra": 20.690, "dec": 45.280, "mag": 1.25 }
+]
