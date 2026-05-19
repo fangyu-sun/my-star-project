@@ -54,18 +54,31 @@ function switchScreen(screenEl) {
 }
 
 startBtn.addEventListener('click', () => {
-  switchScreen(loadingScreen);
-  
   if (!navigator.geolocation) {
     alert('您的浏览器不支持获取地理位置。');
-    switchScreen(introScreen);
     return;
   }
 
-  let cityString = localStorage.getItem('zenith_last_city') || "未知地点";
-  let updateInterval;
+  // 1. Immediately read cached or default coordinates
+  const cachedLatStr = localStorage.getItem('zenith_last_lat');
+  const cachedLonStr = localStorage.getItem('zenith_last_lon');
+  
+  let currentLat, currentLon;
+  let cityString = "";
+  
+  if (cachedLatStr && cachedLonStr) {
+    currentLat = parseFloat(cachedLatStr);
+    currentLon = parseFloat(cachedLonStr);
+    cityString = localStorage.getItem('zenith_last_city') || "缓存位置";
+  } else {
+    // Default to Beijing
+    currentLat = 39.9042;
+    currentLon = 116.4074;
+    cityString = "北京 (默认位置)";
+  }
 
-  function updateBroadcaster(lat, lon) {
+  // 2. Setup the broadcaster updater function using the active scoped variables
+  function updateBroadcaster() {
     const date = new Date();
     const timeString = date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
     
@@ -74,7 +87,7 @@ startBtn.addEventListener('click', () => {
     }
     
     try {
-      const bestObj = getBestZenithObject(lat, lon, date, activeSatellites);
+      const bestObj = getBestZenithObject(currentLat, currentLon, date, activeSatellites);
       const copy = generateCopy(bestObj);
       
       if (mainCopyEl.textContent !== copy) {
@@ -89,72 +102,53 @@ startBtn.addEventListener('click', () => {
           metaInfoEl.innerHTML = `${bestObj.id.toUpperCase()} &nbsp;&middot;&nbsp; ALTITUDE ${bestObj.altitude.toFixed(1)}&deg; &nbsp;&middot;&nbsp; ZENITH OFFSET ${offZenith}&deg;`;
         }
       } else {
-        metaInfoEl.innerHTML = `LAT ${lat.toFixed(2)} &nbsp;&middot;&nbsp; LON ${lon.toFixed(2)}`;
+        metaInfoEl.innerHTML = `LAT ${currentLat.toFixed(2)} &nbsp;&middot;&nbsp; LON ${currentLon.toFixed(2)}`;
       }
     } catch (e) {
       console.error(e);
     }
   }
 
+  // 3. Immediately render the cached sky state and transition to broadcaster (no loading screen block!)
+  updateBroadcaster();
+  switchScreen(broadcasterScreen);
+
+  // 4. Start the 1-second ticks using the active coordinates
+  let updateInterval = setInterval(updateBroadcaster, 1000);
+
+  // 5. Query for fresh real-time coordinates in the background silently
   navigator.geolocation.getCurrentPosition(
     (position) => {
-      const lat = position.coords.latitude;
-      const lon = position.coords.longitude;
-      localStorage.setItem('zenith_last_lat', lat);
-      localStorage.setItem('zenith_last_lon', lon);
+      const freshLat = position.coords.latitude;
+      const freshLon = position.coords.longitude;
       
-      fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=zh`)
+      // Update active coordinates
+      currentLat = freshLat;
+      currentLon = freshLon;
+      
+      localStorage.setItem('zenith_last_lat', freshLat);
+      localStorage.setItem('zenith_last_lon', freshLon);
+
+      // Perform background geocoding to refine the city name
+      fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${freshLat}&longitude=${freshLon}&localityLanguage=zh`)
         .then(res => res.json())
         .then(data => {
           cityString = data.city || data.locality || data.principalSubdivision || '未知地点';
           localStorage.setItem('zenith_last_city', cityString);
-          updateBroadcaster(lat, lon);
+          updateBroadcaster();
         })
         .catch(() => {
-          cityString = `${lat.toFixed(2)}, ${lon.toFixed(2)}`;
-          updateBroadcaster(lat, lon);
+          cityString = `${freshLat.toFixed(2)}, ${freshLon.toFixed(2)}`;
+          updateBroadcaster();
         });
       
-      updateBroadcaster(lat, lon);
-
-      if (updateInterval) clearInterval(updateInterval);
-      updateInterval = setInterval(() => {
-        updateBroadcaster(lat, lon);
-      }, 1000);
-      
-      // Make it snappier (1 second simulation is plenty for loading effect)
-      setTimeout(() => {
-        switchScreen(broadcasterScreen);
-      }, 1000);
+      // Instantly trigger an update with the fresh coordinates
+      updateBroadcaster();
     },
     (error) => {
-      console.warn("Geolocation failed or timed out, trying cached coordinates or default.", error);
-      const cachedLatStr = localStorage.getItem('zenith_last_lat');
-      const cachedLonStr = localStorage.getItem('zenith_last_lon');
-      
-      let lat, lon;
-      if (cachedLatStr && cachedLonStr) {
-        lat = parseFloat(cachedLatStr);
-        lon = parseFloat(cachedLonStr);
-        cityString = localStorage.getItem('zenith_last_city') || "缓存位置";
-      } else {
-        // Fallback to Beijing coordinates as a default
-        lat = 39.9042;
-        lon = 116.4074;
-        cityString = "北京 (默认位置)";
-      }
-      
-      updateBroadcaster(lat, lon);
-
-      if (updateInterval) clearInterval(updateInterval);
-      updateInterval = setInterval(() => {
-        updateBroadcaster(lat, lon);
-      }, 1000);
-      
-      setTimeout(() => {
-        switchScreen(broadcasterScreen);
-      }, 1000);
+      console.warn("Background geolocation refresh failed or was declined.", error);
+      // We do not show any annoying error alert since the cached/default location is already running beautifully!
     },
-    { enableHighAccuracy: false, maximumAge: 0 }
+    { enableHighAccuracy: false, timeout: 15000, maximumAge: 0 }
   );
 });
