@@ -155,6 +155,6 @@ startBtn.addEventListener('click', () => {
         switchScreen(broadcasterScreen);
       }, 1000);
     },
-    { timeout: 4000, enableHighAccuracy: false, maximumAge: 86400000 }
+    { enableHighAccuracy: false, maximumAge: 0 }
   );
 });
