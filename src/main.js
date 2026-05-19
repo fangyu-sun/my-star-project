@@ -62,7 +62,7 @@ startBtn.addEventListener('click', () => {
     return;
   }
 
-  let cityString = "未知地点";
+  let cityString = localStorage.getItem('zenith_last_city') || "未知地点";
   let updateInterval;
 
   function updateBroadcaster(lat, lon) {
@@ -100,10 +100,14 @@ startBtn.addEventListener('click', () => {
     (position) => {
       const lat = position.coords.latitude;
       const lon = position.coords.longitude;
+      localStorage.setItem('zenith_last_lat', lat);
+      localStorage.setItem('zenith_last_lon', lon);
+      
       fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=zh`)
         .then(res => res.json())
         .then(data => {
           cityString = data.city || data.locality || data.principalSubdivision || '未知地点';
+          localStorage.setItem('zenith_last_city', cityString);
           updateBroadcaster(lat, lon);
         })
         .catch(() => {
@@ -118,16 +122,39 @@ startBtn.addEventListener('click', () => {
         updateBroadcaster(lat, lon);
       }, 1000);
       
-      // Wait a bit to simulate searching and let the animation play out
+      // Make it snappier (1 second simulation is plenty for loading effect)
       setTimeout(() => {
         switchScreen(broadcasterScreen);
-      }, 2000);
+      }, 1000);
     },
     (error) => {
-      console.error(error);
-      alert('无法获取您的位置，请检查权限。');
-      switchScreen(introScreen);
+      console.warn("Geolocation failed or timed out, trying cached coordinates or default.", error);
+      const cachedLatStr = localStorage.getItem('zenith_last_lat');
+      const cachedLonStr = localStorage.getItem('zenith_last_lon');
+      
+      let lat, lon;
+      if (cachedLatStr && cachedLonStr) {
+        lat = parseFloat(cachedLatStr);
+        lon = parseFloat(cachedLonStr);
+        cityString = localStorage.getItem('zenith_last_city') || "缓存位置";
+      } else {
+        // Fallback to Beijing coordinates as a default
+        lat = 39.9042;
+        lon = 116.4074;
+        cityString = "北京 (默认位置)";
+      }
+      
+      updateBroadcaster(lat, lon);
+
+      if (updateInterval) clearInterval(updateInterval);
+      updateInterval = setInterval(() => {
+        updateBroadcaster(lat, lon);
+      }, 1000);
+      
+      setTimeout(() => {
+        switchScreen(broadcasterScreen);
+      }, 1000);
     },
-    { timeout: 10000, enableHighAccuracy: false }
+    { timeout: 4000, enableHighAccuracy: false, maximumAge: 86400000 }
   );
 });

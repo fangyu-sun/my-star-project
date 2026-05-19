@@ -3,7 +3,7 @@ export function generateCopy(celestialObj) {
         return "此刻的天顶深处，仅余无垠暗空。";
     }
 
-    const { name, distanceStr, isPlanet, id, altitude } = celestialObj;
+    const { name, distanceStr, isPlanet, id, altitude, isSatellite } = celestialObj;
     
     // Determine the position description based on altitude
     let positionPhrase = "";
