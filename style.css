@@ -207,7 +207,8 @@ body {
   background: transparent;
   box-shadow: none;
   transform: none;
-  animation: inlineLangBreathe 3s infinite alternate ease-in-out;
+  /* 4s duration to perfectly match the center star's zenith-dot breathe frequency */
+  animation: inlineLangBreathe 4s infinite alternate ease-in-out;
 }
 
 .lang-inline-sep {
@@ -217,12 +218,12 @@ body {
 
 @keyframes inlineLangBreathe {
   0% {
-    color: #666;
-    text-shadow: 0 0 2px rgba(136, 136, 136, 0.15);
+    color: #444; /* Dim, matching the star's low state */
+    text-shadow: 0 0 2px rgba(136, 136, 136, 0.1);
   }
   100% {
-    color: #888;
-    text-shadow: 0 0 12px rgba(136, 136, 136, 0.45);
+    color: #888; /* Bright, matching the star's peak state */
+    text-shadow: 0 0 10px rgba(136, 136, 136, 0.4);
   }
 }
 
