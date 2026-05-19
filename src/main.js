@@ -45,9 +45,6 @@ const UI_TRANSLATIONS = {
   zh: {
     introText: "此应用需要获取地理位置，<br>以计算此时此刻您上方的宇宙状态。",
     startBtn: "开启连接",
-    langMenuBtn: "English / 中文 / 日本語",
-    langBackBtn: "返回 / Back",
-    langTitle: "SELECT LANGUAGE<br><span style=\"font-size: 0.8rem; color: #666; letter-spacing: 0.1em; font-family: var(--font-sans);\">选择语言 / 言語選択</span>",
     fallbackCity: "北京 (默认位置)",
     cachedCity: "缓存位置",
     geoError: "您的浏览器不支持获取地理位置。",
@@ -56,20 +53,14 @@ const UI_TRANSLATIONS = {
   en: {
     introText: "This application requires location access<br>to calculate the cosmic state directly above you right now.",
     startBtn: "Connect",
-    langMenuBtn: "English / 中文 / 日本語",
-    langBackBtn: "Back",
-    langTitle: "SELECT LANGUAGE<br><span style=\"font-size: 0.8rem; color: #666; letter-spacing: 0.1em; font-family: var(--font-sans);\">选择语言 / 言語選択</span>",
     fallbackCity: "Beijing (Default Location)",
     cachedCity: "Cached Location",
     geoError: "Your browser does not support geolocation.",
     cityUnknown: "Unknown Location"
   },
   ja: {
-    introText: "このアプリは現在地情報を取得し、<br>今この瞬間にあなたの真上にある宇宙の状態を計算します。",
+    introText: "このアプリは現在地情報を取得し、<br>今この瞬間にあなたの真上にある宇宙の状態を计算します。",
     startBtn: "接続開始",
-    langMenuBtn: "English / 中文 / 日本語",
-    langBackBtn: "戻る",
-    langTitle: "SELECT LANGUAGE<br><span style=\"font-size: 0.8rem; color: #666; letter-spacing: 0.1em; font-family: var(--font-sans);\">选择语言 / 言語選択</span>",
     fallbackCity: "北京 (デフォルト位置)",
     cachedCity: "キャッシュされた位置",
     geoError: "お使いのブラウザは位置情報の取得に対応していません。",
@@ -84,18 +75,12 @@ function applyLanguage() {
   
   const introTextEl = document.getElementById('intro-text');
   const startBtnEl = document.getElementById('start-btn');
-  const langMenuBtnEl = document.getElementById('lang-menu-btn');
-  const langTitleEl = document.getElementById('lang-title');
-  const langBackBtnEl = document.getElementById('lang-back-btn');
   
   if (introTextEl) introTextEl.innerHTML = t.introText;
   if (startBtnEl) startBtnEl.textContent = t.startBtn;
-  if (langMenuBtnEl) langMenuBtnEl.textContent = t.langMenuBtn;
-  if (langTitleEl) langTitleEl.innerHTML = t.langTitle;
-  if (langBackBtnEl) langBackBtnEl.textContent = t.langBackBtn;
   
-  // Highlight active lang option button
-  document.querySelectorAll('.lang-opt-btn').forEach(btn => {
+  // Highlight active inline language selector option
+  document.querySelectorAll('.lang-inline-opt').forEach(btn => {
     if (btn.getAttribute('data-lang') === currentLang) {
       btn.classList.add('active');
     } else {
@@ -106,7 +91,6 @@ function applyLanguage() {
 
 // --------------------- DOM Elements & Routing ---------------------
 const introScreen = document.getElementById('intro');
-const langScreen = document.getElementById('lang-screen');
 const loadingScreen = document.getElementById('loading');
 const broadcasterScreen = document.getElementById('broadcaster');
 
@@ -114,8 +98,6 @@ const mainCopyEl = document.getElementById('main-copy');
 const metaInfoEl = document.getElementById('meta-info');
 const locationTimeInfoEl = document.getElementById('location-time-info');
 const startBtn = document.getElementById('start-btn');
-const langMenuBtn = document.getElementById('lang-menu-btn');
-const langBackBtn = document.getElementById('lang-back-btn');
 
 function switchScreen(screenEl) {
   document.querySelectorAll('.screen').forEach(el => el.classList.remove('active'));
@@ -125,30 +107,21 @@ function switchScreen(screenEl) {
 // Initialize language representation
 applyLanguage();
 
-// Event listeners for Language Screen
-langMenuBtn.addEventListener('click', () => {
-  switchScreen(langScreen);
-});
-
-langBackBtn.addEventListener('click', () => {
-  switchScreen(introScreen);
-});
-
-document.querySelectorAll('.lang-opt-btn').forEach(btn => {
+// Event listeners for inline language option buttons
+document.querySelectorAll('.lang-inline-opt').forEach(btn => {
   btn.addEventListener('click', (e) => {
     const selectedLang = e.currentTarget.getAttribute('data-lang');
     
-    // Visually toggle active class immediately on the clicked button
-    document.querySelectorAll('.lang-opt-btn').forEach(b => b.classList.remove('active'));
+    // Visually toggle active class immediately on the clicked item for instant tactile response
+    document.querySelectorAll('.lang-inline-opt').forEach(b => b.classList.remove('active'));
     e.currentTarget.classList.add('active');
     
     currentLang = selectedLang;
     localStorage.setItem('zenith_lang', selectedLang);
-    applyLanguage();
     
-    // Short 200ms delay to let the tactile active/gradient selection animation complete
+    // Apply translation with a short 200ms delay to feel the elegant selected gradient transition
     setTimeout(() => {
-      switchScreen(introScreen);
+      applyLanguage();
     }, 200);
   });
 });
