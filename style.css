@@ -119,6 +119,8 @@ body {
   max-width: 80% !important;
   margin-bottom: 2rem;
   color: #ececec;
+  /* 0.8s transition for smooth language switching fade */
+  transition: opacity 0.8s cubic-bezier(0.33, 1, 0.68, 1);
 }
 
 #meta-info {
@@ -127,7 +129,8 @@ body {
   color: #555;
   letter-spacing: 0.1em;
   opacity: 0;
-  transition: opacity 1.5s ease;
+  /* 0.8s transition for smooth language switching fade and hover fade */
+  transition: opacity 0.8s cubic-bezier(0.33, 1, 0.68, 1);
   margin-top: 2rem;
   font-variant-numeric: tabular-nums;
 }
@@ -147,6 +150,22 @@ body {
   letter-spacing: 0.15em;
   opacity: 0.8;
   font-variant-numeric: tabular-nums;
+  /* 0.8s transition for smooth language switching fade */
+  transition: opacity 0.8s cubic-bezier(0.33, 1, 0.68, 1);
+}
+
+.lang-selector-top-right {
+  position: absolute;
+  top: 2.5rem;
+  right: 3rem;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-family: var(--font-sans);
+  font-size: 0.75rem;
+  letter-spacing: 0.1em;
+  user-select: none;
+  z-index: 100;
 }
 
 @media (max-width: 768px) {

@@ -125,25 +125,41 @@ document.querySelectorAll('.lang-inline-opt').forEach(btn => {
     const selectedLang = e.currentTarget.getAttribute('data-lang');
     if (selectedLang === currentLang) return; // Ignore clicks on the already active language
     
-    // Visually toggle active class immediately on the clicked item for instant tactile response
+    // Visually toggle active class immediately on both language selectors across pages
     document.querySelectorAll('.lang-inline-opt').forEach(b => b.classList.remove('active'));
-    e.currentTarget.classList.add('active');
+    document.querySelectorAll(`.lang-inline-opt[data-lang="${selectedLang}"]`).forEach(el => el.classList.add('active'));
     
     currentLang = selectedLang;
     localStorage.setItem('zenith_lang', selectedLang);
     
-    // Smooth slow breathing transition for the main text elements
+    // Smooth slow breathing transition for all text elements on active screen
     const introTextEl = document.getElementById('intro-text');
     const startBtnEl = document.getElementById('start-btn');
+    const mainCopyEl = document.getElementById('main-copy');
+    const locationTimeInfoEl = document.getElementById('location-time-info');
+    const metaInfoEl = document.getElementById('meta-info');
     
-    if (introTextEl) introTextEl.classList.add('text-breath-out');
-    if (startBtnEl) startBtnEl.classList.add('text-breath-out');
+    const elementsToFade = [introTextEl, startBtnEl, mainCopyEl, locationTimeInfoEl, metaInfoEl];
+    
+    elementsToFade.forEach(el => {
+      if (el) el.classList.add('text-breath-out');
+    });
     
     // Wait for the slow fade-out breathing curve (800ms) to complete before changing text and fading back in
     setTimeout(() => {
       applyLanguage();
-      if (introTextEl) introTextEl.classList.remove('text-breath-out');
-      if (startBtnEl) startBtnEl.classList.remove('text-breath-out');
+      
+      // If we are on the broadcaster screen, force immediate calculation refresh & dynamic geocoding
+      if (typeof window.triggerZenithUpdate === 'function') {
+        window.triggerZenithUpdate();
+      }
+      if (typeof window.triggerGeocodeRefine === 'function') {
+        window.triggerGeocodeRefine();
+      }
+      
+      elementsToFade.forEach(el => {
+        if (el) el.classList.remove('text-breath-out');
+      });
     }, 800);
   });
 });
@@ -162,16 +178,19 @@ startBtn.addEventListener('click', () => {
   
   let currentLat, currentLon;
   let cityString = "";
+  let isCityDynamic = true;
   
   if (cachedLatStr && cachedLonStr) {
     currentLat = parseFloat(cachedLatStr);
     currentLon = parseFloat(cachedLonStr);
     cityString = localStorage.getItem('zenith_last_city') || t.cachedCity;
+    isCityDynamic = !localStorage.getItem('zenith_last_city');
   } else {
     // Default to Beijing
     currentLat = 39.9042;
     currentLon = 116.4074;
     cityString = t.fallbackCity;
+    isCityDynamic = true;
   }
 
   // 2. Setup the broadcaster updater function using the active scoped variables
@@ -180,8 +199,17 @@ startBtn.addEventListener('click', () => {
     const localeStr = currentLang === 'zh' ? 'zh-CN' : currentLang === 'ja' ? 'ja-JP' : 'en-US';
     const timeString = date.toLocaleTimeString(localeStr, { hour: '2-digit', minute: '2-digit' });
     
+    // Resolve dynamic city string translation based on active language if cityString is fallback/cached text
+    let displayCity = cityString;
+    if (isCityDynamic) {
+      displayCity = currentLang === 'zh' ? '北京' : currentLang === 'ja' ? '北京' : 'Beijing';
+      if (cachedLatStr && cachedLonStr && !localStorage.getItem('zenith_last_city')) {
+        displayCity = UI_TRANSLATIONS[currentLang].cachedCity;
+      }
+    }
+
     if (locationTimeInfoEl) {
-      locationTimeInfoEl.textContent = `${cityString} · ${timeString}`;
+      locationTimeInfoEl.textContent = `${displayCity} · ${timeString}`;
     }
     
     try {
@@ -207,6 +235,24 @@ startBtn.addEventListener('click', () => {
     }
   }
 
+  // Store globally so it can be invoked during real-time language transitions
+  window.triggerZenithUpdate = updateBroadcaster;
+
+  // Background geocode refiner that can be invoked during language transitions
+  window.triggerGeocodeRefine = function() {
+    if (currentLat && currentLon) {
+      fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${currentLat}&longitude=${currentLon}&localityLanguage=${currentLang}`)
+        .then(res => res.json())
+        .then(data => {
+          cityString = data.city || data.locality || data.principalSubdivision || UI_TRANSLATIONS[currentLang].cityUnknown;
+          localStorage.setItem('zenith_last_city', cityString);
+          isCityDynamic = false;
+          updateBroadcaster();
+        })
+        .catch(() => {});
+    }
+  };
+
   // 3. Immediately render the cached sky state and transition to broadcaster (no loading screen block!)
   updateBroadcaster();
   switchScreen(broadcasterScreen);
@@ -231,12 +277,14 @@ startBtn.addEventListener('click', () => {
       fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${freshLat}&longitude=${freshLon}&localityLanguage=${currentLang}`)
         .then(res => res.json())
         .then(data => {
-          cityString = data.city || data.locality || data.principalSubdivision || t.cityUnknown;
+          cityString = data.city || data.locality || data.principalSubdivision || UI_TRANSLATIONS[currentLang].cityUnknown;
           localStorage.setItem('zenith_last_city', cityString);
+          isCityDynamic = false;
           updateBroadcaster();
         })
         .catch(() => {
           cityString = `${freshLat.toFixed(2)}, ${freshLon.toFixed(2)}`;
+          isCityDynamic = false;
           updateBroadcaster();
         });
       
