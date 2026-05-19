@@ -1,4 +1,4 @@
-import './style.css'
+import '../style.css'
 import { getBestZenithObject } from './astronomy.js'
 import { generateCopy } from './copywriter.js'
 
