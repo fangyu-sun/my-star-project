@@ -73,6 +73,18 @@ let currentLang = localStorage.getItem('zenith_lang') || 'zh';
 function applyLanguage() {
   const t = UI_TRANSLATIONS[currentLang];
   
+  // Set lang class on body to allow styling changes based on language
+  if (currentLang === 'en') {
+    document.body.classList.add('lang-en');
+    document.body.classList.remove('lang-zh', 'lang-ja');
+  } else if (currentLang === 'ja') {
+    document.body.classList.add('lang-ja');
+    document.body.classList.remove('lang-en', 'lang-zh');
+  } else {
+    document.body.classList.add('lang-zh');
+    document.body.classList.remove('lang-en', 'lang-ja');
+  }
+  
   const introTextEl = document.getElementById('intro-text');
   const startBtnEl = document.getElementById('start-btn');
   
@@ -111,6 +123,7 @@ applyLanguage();
 document.querySelectorAll('.lang-inline-opt').forEach(btn => {
   btn.addEventListener('click', (e) => {
     const selectedLang = e.currentTarget.getAttribute('data-lang');
+    if (selectedLang === currentLang) return; // Ignore clicks on the already active language
     
     // Visually toggle active class immediately on the clicked item for instant tactile response
     document.querySelectorAll('.lang-inline-opt').forEach(b => b.classList.remove('active'));
@@ -119,10 +132,19 @@ document.querySelectorAll('.lang-inline-opt').forEach(btn => {
     currentLang = selectedLang;
     localStorage.setItem('zenith_lang', selectedLang);
     
-    // Apply translation with a short 200ms delay to feel the elegant selected gradient transition
+    // Smooth slow breathing transition for the main text elements
+    const introTextEl = document.getElementById('intro-text');
+    const startBtnEl = document.getElementById('start-btn');
+    
+    if (introTextEl) introTextEl.classList.add('text-breath-out');
+    if (startBtnEl) startBtnEl.classList.add('text-breath-out');
+    
+    // Wait for the slow fade-out breathing curve (800ms) to complete before changing text and fading back in
     setTimeout(() => {
       applyLanguage();
-    }, 200);
+      if (introTextEl) introTextEl.classList.remove('text-breath-out');
+      if (startBtnEl) startBtnEl.classList.remove('text-breath-out');
+    }, 800);
   });
 });
 
