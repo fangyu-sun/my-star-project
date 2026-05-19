@@ -126,6 +126,7 @@ body {
   opacity: 0;
   transition: opacity 1.5s ease;
   margin-top: 2rem;
+  font-variant-numeric: tabular-nums;
 }
 
 #broadcaster:hover #meta-info {
@@ -142,6 +143,7 @@ body {
   color: var(--text-secondary);
   letter-spacing: 0.15em;
   opacity: 0.8;
+  font-variant-numeric: tabular-nums;
 }
 
 @media (max-width: 768px) {
