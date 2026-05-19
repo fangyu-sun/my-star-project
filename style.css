@@ -188,23 +188,32 @@ body {
 
 .lang-opt-btn {
   background: transparent;
-  border: 1px solid #1a1a1a;
-  color: #666;
+  border: 1px solid #1c1c1c;
+  color: #444; /* Premium dark gray */
   padding: 0.8rem 3rem;
   font-family: var(--font-serif);
   font-size: 0.95rem;
   cursor: pointer;
-  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: all 0.2s cubic-bezier(0.25, 1, 0.5, 1); /* responsive low-latency cubic curve */
   letter-spacing: 0.2em;
   border-radius: 2px;
   width: 240px;
 }
 
-.lang-opt-btn:hover, .lang-opt-btn.active {
+.lang-opt-btn:hover {
   border-color: #555;
-  color: var(--text-primary);
-  background: rgba(255, 255, 255, 0.02);
-  text-shadow: 0 0 8px rgba(255,255,255,0.3);
+  color: #fff; /* Dark gray transitions smoothly to pure white on hover */
+  background: rgba(255, 255, 255, 0.01);
+  text-shadow: 0 0 8px rgba(255, 255, 255, 0.25);
+}
+
+.lang-opt-btn.active {
+  border-color: #888;
+  color: #fff;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.04) 0%, rgba(255, 255, 255, 0) 100%);
+  box-shadow: 0 0 15px rgba(255, 255, 255, 0.05);
+  transform: scale(1.02);
+  text-shadow: 0 0 10px rgba(255, 255, 255, 0.4);
 }
 
 #lang-back-btn {

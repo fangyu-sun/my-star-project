@@ -45,7 +45,7 @@ const UI_TRANSLATIONS = {
   zh: {
     introText: "此应用需要获取地理位置，<br>以计算此时此刻您上方的宇宙状态。",
     startBtn: "开启连接",
-    langMenuBtn: "Language / 语言 / 言語",
+    langMenuBtn: "English / 中文 / 日本語",
     langBackBtn: "返回 / Back",
     langTitle: "SELECT LANGUAGE<br><span style=\"font-size: 0.8rem; color: #666; letter-spacing: 0.1em; font-family: var(--font-sans);\">选择语言 / 言語選択</span>",
     fallbackCity: "北京 (默认位置)",
@@ -56,7 +56,7 @@ const UI_TRANSLATIONS = {
   en: {
     introText: "This application requires location access<br>to calculate the cosmic state directly above you right now.",
     startBtn: "Connect",
-    langMenuBtn: "Language / 语言 / 言語",
+    langMenuBtn: "English / 中文 / 日本語",
     langBackBtn: "Back",
     langTitle: "SELECT LANGUAGE<br><span style=\"font-size: 0.8rem; color: #666; letter-spacing: 0.1em; font-family: var(--font-sans);\">选择语言 / 言語選択</span>",
     fallbackCity: "Beijing (Default Location)",
@@ -67,7 +67,7 @@ const UI_TRANSLATIONS = {
   ja: {
     introText: "このアプリは現在地情報を取得し、<br>今この瞬間にあなたの真上にある宇宙の状態を計算します。",
     startBtn: "接続開始",
-    langMenuBtn: "Language / 语言 / 言語",
+    langMenuBtn: "English / 中文 / 日本語",
     langBackBtn: "戻る",
     langTitle: "SELECT LANGUAGE<br><span style=\"font-size: 0.8rem; color: #666; letter-spacing: 0.1em; font-family: var(--font-sans);\">选择语言 / 言語選択</span>",
     fallbackCity: "北京 (デフォルト位置)",
@@ -137,10 +137,19 @@ langBackBtn.addEventListener('click', () => {
 document.querySelectorAll('.lang-opt-btn').forEach(btn => {
   btn.addEventListener('click', (e) => {
     const selectedLang = e.currentTarget.getAttribute('data-lang');
+    
+    // Visually toggle active class immediately on the clicked button
+    document.querySelectorAll('.lang-opt-btn').forEach(b => b.classList.remove('active'));
+    e.currentTarget.classList.add('active');
+    
     currentLang = selectedLang;
     localStorage.setItem('zenith_lang', selectedLang);
     applyLanguage();
-    switchScreen(introScreen);
+    
+    // Short 200ms delay to let the tactile active/gradient selection animation complete
+    setTimeout(() => {
+      switchScreen(introScreen);
+    }, 200);
   });
 });
 
