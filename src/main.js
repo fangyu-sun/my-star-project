@@ -95,11 +95,11 @@ startBtn.addEventListener('click', () => {
       }
       
       if (bestObj) {
-        const offZenith = (90 - bestObj.altitude).toFixed(1);
+        const offZenith = (90 - bestObj.altitude).toFixed(3);
         if (bestObj.isSatellite) {
-          metaInfoEl.innerHTML = `${bestObj.name.toUpperCase()} &nbsp;&middot;&nbsp; ALTITUDE ${bestObj.altitude.toFixed(1)}&deg; &nbsp;&middot;&nbsp; RANGE ${bestObj.distanceStr}`;
+          metaInfoEl.innerHTML = `${bestObj.name.toUpperCase()} &nbsp;&middot;&nbsp; ALTITUDE ${bestObj.altitude.toFixed(3)}&deg; &nbsp;&middot;&nbsp; RANGE ${bestObj.distanceStr}`;
         } else {
-          metaInfoEl.innerHTML = `${bestObj.id.toUpperCase()} &nbsp;&middot;&nbsp; ALTITUDE ${bestObj.altitude.toFixed(1)}&deg; &nbsp;&middot;&nbsp; ZENITH OFFSET ${offZenith}&deg;`;
+          metaInfoEl.innerHTML = `${bestObj.id.toUpperCase()} &nbsp;&middot;&nbsp; ALTITUDE ${bestObj.altitude.toFixed(3)}&deg; &nbsp;&middot;&nbsp; ZENITH OFFSET ${offZenith}&deg;`;
         }
       } else {
         metaInfoEl.innerHTML = `LAT ${currentLat.toFixed(2)} &nbsp;&middot;&nbsp; LON ${currentLon.toFixed(2)}`;
