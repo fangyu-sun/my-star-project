@@ -40,22 +40,115 @@ async function loadActiveSatellites() {
 // Start loading immediately on page load
 loadActiveSatellites();
 
+// --------------------- i18n Localization ---------------------
+const UI_TRANSLATIONS = {
+  zh: {
+    introText: "此应用需要获取地理位置，<br>以计算此时此刻您上方的宇宙状态。",
+    startBtn: "开启连接",
+    langMenuBtn: "Language / 语言 / 言語",
+    langBackBtn: "返回 / Back",
+    langTitle: "SELECT LANGUAGE<br><span style=\"font-size: 0.8rem; color: #666; letter-spacing: 0.1em; font-family: var(--font-sans);\">选择语言 / 言語選択</span>",
+    fallbackCity: "北京 (默认位置)",
+    cachedCity: "缓存位置",
+    geoError: "您的浏览器不支持获取地理位置。",
+    cityUnknown: "未知地点"
+  },
+  en: {
+    introText: "This application requires location access<br>to calculate the cosmic state directly above you right now.",
+    startBtn: "Connect",
+    langMenuBtn: "Language / 语言 / 言語",
+    langBackBtn: "Back",
+    langTitle: "SELECT LANGUAGE<br><span style=\"font-size: 0.8rem; color: #666; letter-spacing: 0.1em; font-family: var(--font-sans);\">选择语言 / 言語選択</span>",
+    fallbackCity: "Beijing (Default Location)",
+    cachedCity: "Cached Location",
+    geoError: "Your browser does not support geolocation.",
+    cityUnknown: "Unknown Location"
+  },
+  ja: {
+    introText: "このアプリは現在地情報を取得し、<br>今この瞬間にあなたの真上にある宇宙の状態を計算します。",
+    startBtn: "接続開始",
+    langMenuBtn: "Language / 语言 / 言語",
+    langBackBtn: "戻る",
+    langTitle: "SELECT LANGUAGE<br><span style=\"font-size: 0.8rem; color: #666; letter-spacing: 0.1em; font-family: var(--font-sans);\">选择语言 / 言語選択</span>",
+    fallbackCity: "北京 (デフォルト位置)",
+    cachedCity: "キャッシュされた位置",
+    geoError: "お使いのブラウザは位置情報の取得に対応していません。",
+    cityUnknown: "未知の場所"
+  }
+};
+
+let currentLang = localStorage.getItem('zenith_lang') || 'zh';
+
+function applyLanguage() {
+  const t = UI_TRANSLATIONS[currentLang];
+  
+  const introTextEl = document.getElementById('intro-text');
+  const startBtnEl = document.getElementById('start-btn');
+  const langMenuBtnEl = document.getElementById('lang-menu-btn');
+  const langTitleEl = document.getElementById('lang-title');
+  const langBackBtnEl = document.getElementById('lang-back-btn');
+  
+  if (introTextEl) introTextEl.innerHTML = t.introText;
+  if (startBtnEl) startBtnEl.textContent = t.startBtn;
+  if (langMenuBtnEl) langMenuBtnEl.textContent = t.langMenuBtn;
+  if (langTitleEl) langTitleEl.innerHTML = t.langTitle;
+  if (langBackBtnEl) langBackBtnEl.textContent = t.langBackBtn;
+  
+  // Highlight active lang option button
+  document.querySelectorAll('.lang-opt-btn').forEach(btn => {
+    if (btn.getAttribute('data-lang') === currentLang) {
+      btn.classList.add('active');
+    } else {
+      btn.classList.remove('active');
+    }
+  });
+}
+
+// --------------------- DOM Elements & Routing ---------------------
 const introScreen = document.getElementById('intro');
+const langScreen = document.getElementById('lang-screen');
 const loadingScreen = document.getElementById('loading');
 const broadcasterScreen = document.getElementById('broadcaster');
+
 const mainCopyEl = document.getElementById('main-copy');
 const metaInfoEl = document.getElementById('meta-info');
 const locationTimeInfoEl = document.getElementById('location-time-info');
 const startBtn = document.getElementById('start-btn');
+const langMenuBtn = document.getElementById('lang-menu-btn');
+const langBackBtn = document.getElementById('lang-back-btn');
 
 function switchScreen(screenEl) {
   document.querySelectorAll('.screen').forEach(el => el.classList.remove('active'));
   screenEl.classList.add('active');
 }
 
+// Initialize language representation
+applyLanguage();
+
+// Event listeners for Language Screen
+langMenuBtn.addEventListener('click', () => {
+  switchScreen(langScreen);
+});
+
+langBackBtn.addEventListener('click', () => {
+  switchScreen(introScreen);
+});
+
+document.querySelectorAll('.lang-opt-btn').forEach(btn => {
+  btn.addEventListener('click', (e) => {
+    const selectedLang = e.currentTarget.getAttribute('data-lang');
+    currentLang = selectedLang;
+    localStorage.setItem('zenith_lang', selectedLang);
+    applyLanguage();
+    switchScreen(introScreen);
+  });
+});
+
+// --------------------- Connection Initiation ---------------------
 startBtn.addEventListener('click', () => {
+  const t = UI_TRANSLATIONS[currentLang];
   if (!navigator.geolocation) {
-    alert('您的浏览器不支持获取地理位置。');
+    alert(t.geoError);
     return;
   }
 
@@ -69,18 +162,19 @@ startBtn.addEventListener('click', () => {
   if (cachedLatStr && cachedLonStr) {
     currentLat = parseFloat(cachedLatStr);
     currentLon = parseFloat(cachedLonStr);
-    cityString = localStorage.getItem('zenith_last_city') || "缓存位置";
+    cityString = localStorage.getItem('zenith_last_city') || t.cachedCity;
   } else {
     // Default to Beijing
     currentLat = 39.9042;
     currentLon = 116.4074;
-    cityString = "北京 (默认位置)";
+    cityString = t.fallbackCity;
   }
 
   // 2. Setup the broadcaster updater function using the active scoped variables
   function updateBroadcaster() {
     const date = new Date();
-    const timeString = date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+    const localeStr = currentLang === 'zh' ? 'zh-CN' : currentLang === 'ja' ? 'ja-JP' : 'en-US';
+    const timeString = date.toLocaleTimeString(localeStr, { hour: '2-digit', minute: '2-digit' });
     
     if (locationTimeInfoEl) {
       locationTimeInfoEl.textContent = `${cityString} · ${timeString}`;
@@ -88,7 +182,7 @@ startBtn.addEventListener('click', () => {
     
     try {
       const bestObj = getBestZenithObject(currentLat, currentLon, date, activeSatellites);
-      const copy = generateCopy(bestObj);
+      const copy = generateCopy(bestObj, currentLang);
       
       if (mainCopyEl.textContent !== copy) {
         mainCopyEl.textContent = copy;
@@ -129,11 +223,11 @@ startBtn.addEventListener('click', () => {
       localStorage.setItem('zenith_last_lat', freshLat);
       localStorage.setItem('zenith_last_lon', freshLon);
 
-      // Perform background geocoding to refine the city name
-      fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${freshLat}&longitude=${freshLon}&localityLanguage=zh`)
+      // Perform background geocoding to refine the city name in the selected language
+      fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${freshLat}&longitude=${freshLon}&localityLanguage=${currentLang}`)
         .then(res => res.json())
         .then(data => {
-          cityString = data.city || data.locality || data.principalSubdivision || '未知地点';
+          cityString = data.city || data.locality || data.principalSubdivision || t.cityUnknown;
           localStorage.setItem('zenith_last_city', cityString);
           updateBroadcaster();
         })
