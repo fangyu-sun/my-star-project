@@ -191,6 +191,13 @@ body {
   #main-copy {
     font-size: 1.2rem;
   }
+  .lang-selector-top-right {
+    top: auto;
+    bottom: 12%;
+    left: 50%;
+    right: auto;
+    transform: translateX(-50%);
+  }
 }
 
 /* Inline Language Selection Design */
