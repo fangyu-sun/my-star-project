@@ -48,7 +48,12 @@ const UI_TRANSLATIONS = {
     fallbackCity: "北京 (默认位置)",
     cachedCity: "缓存位置",
     geoError: "您的浏览器不支持获取地理位置。",
-    cityUnknown: "未知地点"
+    cityUnknown: "未知地点",
+    alt: "仰角",
+    zenithOffset: "天顶偏角",
+    range: "距离",
+    lat: "纬度",
+    lon: "经度"
   },
   en: {
     introText: "This application requires location access<br>to calculate the cosmic state directly above you right now.",
@@ -56,7 +61,12 @@ const UI_TRANSLATIONS = {
     fallbackCity: "Beijing (Default Location)",
     cachedCity: "Cached Location",
     geoError: "Your browser does not support geolocation.",
-    cityUnknown: "Unknown Location"
+    cityUnknown: "Unknown Location",
+    alt: "ALTITUDE",
+    zenithOffset: "ZENITH OFFSET",
+    range: "RANGE",
+    lat: "LAT",
+    lon: "LON"
   },
   ja: {
     introText: "このアプリは現在地情報を取得し、<br>今この瞬間にあなたの真上にある宇宙の状態を计算します。",
@@ -64,7 +74,12 @@ const UI_TRANSLATIONS = {
     fallbackCity: "北京 (デフォルト位置)",
     cachedCity: "キャッシュされた位置",
     geoError: "お使いのブラウザは位置情報の取得に対応していません。",
-    cityUnknown: "未知の場所"
+    cityUnknown: "未知の場所",
+    alt: "仰角",
+    zenithOffset: "天頂角",
+    range: "距離",
+    lat: "緯度",
+    lon: "経度"
   }
 };
 
@@ -220,15 +235,16 @@ startBtn.addEventListener('click', () => {
         mainCopyEl.textContent = copy;
       }
       
+      const currentT = UI_TRANSLATIONS[currentLang];
       if (bestObj) {
         const offZenith = (90 - bestObj.altitude).toFixed(3);
         if (bestObj.isSatellite) {
-          metaInfoEl.innerHTML = `${bestObj.name.toUpperCase()} &nbsp;&middot;&nbsp; ALTITUDE ${bestObj.altitude.toFixed(3)}&deg; &nbsp;&middot;&nbsp; RANGE ${bestObj.distanceStr}`;
+          metaInfoEl.innerHTML = `${bestObj.name.toUpperCase()} &nbsp;&middot;&nbsp; ${currentT.alt} ${bestObj.altitude.toFixed(3)}&deg; &nbsp;&middot;&nbsp; ${currentT.range} ${bestObj.distanceStr}`;
         } else {
-          metaInfoEl.innerHTML = `${bestObj.id.toUpperCase()} &nbsp;&middot;&nbsp; ALTITUDE ${bestObj.altitude.toFixed(3)}&deg; &nbsp;&middot;&nbsp; ZENITH OFFSET ${offZenith}&deg;`;
+          metaInfoEl.innerHTML = `${bestObj.id.toUpperCase()} &nbsp;&middot;&nbsp; ${currentT.alt} ${bestObj.altitude.toFixed(3)}&deg; &nbsp;&middot;&nbsp; ${currentT.zenithOffset} ${offZenith}&deg;`;
         }
       } else {
-        metaInfoEl.innerHTML = `LAT ${currentLat.toFixed(2)} &nbsp;&middot;&nbsp; LON ${currentLon.toFixed(2)}`;
+        metaInfoEl.innerHTML = `${currentT.lat} ${currentLat.toFixed(2)} &nbsp;&middot;&nbsp; ${currentT.lon} ${currentLon.toFixed(2)}`;
       }
     } catch (e) {
       console.error(e);
