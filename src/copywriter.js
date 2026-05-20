@@ -190,35 +190,32 @@ export function generateCopy(celestialObj, lang = 'zh') {
         starTemplates = {
             zh: [
                 `你的上空，一颗属于${conNameZh}的恒星正在发光，距离 ${localizedDistance}。`,
-                `这束光来自${conNameZh}的一颗恒星，已经飞行了 ${numericDistance} 年。`,
+                `你现在看到正上方的，是${conNameZh}中一颗恒星在 ${numericDistance} 年前发出的光。`,
                 `此刻，${localizedDistance}外，一颗${conNameZh}的暗星正在经过。`
             ],
             en: [
                 `Above you, a star in ${conNameEn} is shining, ${localizedDistance} away.`,
-                `This light comes from a star in ${conNameEn}, and has traveled for ${numericDistance} years.`,
+                `The light you see directly above was emitted by a star in ${conNameEn} ${numericDistance} years ago.`,
                 `At this moment, ${localizedDistance} away, a faint star in ${conNameEn} is passing.`
             ],
             ja: [
                 `上空では、${conNameJa}に属する恒星が ${localizedDistance} 先で輝いている。`,
-                `この光は${conNameJa}の恒星から放たれ、${numericDistance} 年の旅を終えた。`,
+                `現在真上に見えるのは、${conNameJa}の恒星が ${numericDistance} 年前に放った光だ。`,
                 `今この瞬間、${localizedDistance}先、${conNameJa}の暗星が通過している。`
             ]
         };
     } else {
         starTemplates = {
             zh: [
-                `你的上空，一颗暗星正在发光，距离 ${localizedDistance}。`,
-                `这束光来自深空的一颗暗星，飞行了 ${numericDistance} 年。`,
+                `你的上空，一颗暗星在你上方经过，距离 ${localizedDistance}。`,
                 `此刻，${localizedDistance}外，一颗没有名字的恒星正在经过。`
             ],
             en: [
-                `Above you, a faint star is shining, ${localizedDistance} away.`,
-                `This light comes from a nameless star, traveling for ${numericDistance} years.`,
-                `At this moment, ${localizedDistance} away, a faint star is passing.`
+                `Above you, a faint star is passing by, ${localizedDistance} away.`,
+                `At this moment, ${localizedDistance} away, a nameless star is passing.`
             ],
             ja: [
-                `上空では、暗星が ${localizedDistance} 先で輝いている。`,
-                `深宇宙の暗星から放たれたこの光は、${numericDistance} 年の旅を終えた。`,
+                `上空では、暗星があなたの真上を通過している。距離 ${localizedDistance}。`,
                 `今この瞬間、${localizedDistance}先、名もなき星が通過している。`
             ]
         };
