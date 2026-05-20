@@ -212,7 +212,7 @@ startBtn.addEventListener('click', () => {
   function updateBroadcaster() {
     const date = new Date();
     const localeStr = currentLang === 'zh' ? 'zh-CN' : currentLang === 'ja' ? 'ja-JP' : 'en-US';
-    const timeString = date.toLocaleTimeString(localeStr, { hour: '2-digit', minute: '2-digit' });
+    const timeString = date.toLocaleTimeString(localeStr, { hour: '2-digit', minute: '2-digit', hour12: false });
     
     // Resolve dynamic city string translation based on active language if cityString is fallback/cached text
     let displayCity = cityString;
