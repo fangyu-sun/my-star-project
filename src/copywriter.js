@@ -124,20 +124,17 @@ export function generateCopy(celestialObj, lang = 'zh') {
             zh: [
                 `${localizedDistance}外，${localizedName}正在缓慢移动。`,
                 `${localizedName}位于你头顶附近。`,
-                `${localizedName}正在反射太阳的光。`,
-                `${localizedDistance}外。`
+                `${localizedName}正在反射太阳的光。`
             ],
             en: [
                 `${localizedDistance} away, ${localizedName} is moving slowly.`,
                 `${localizedName} is near your zenith.`,
-                `${localizedName} is reflecting the Sun's light.`,
-                `${localizedDistance} away.`
+                `${localizedName} is reflecting the Sun's light.`
             ],
             ja: [
                 `${localizedDistance}先で、${localizedName}がゆっくりと移動している。`,
                 `${localizedName}が頭上付近にある。`,
-                `${localizedName}が太陽の光を反射している。`,
-                `${localizedDistance}先。`
+                `${localizedName}が太陽の光を反射している。`
             ]
         };
         return getRandomTemplate(templates[lang]);
@@ -149,21 +146,21 @@ export function generateCopy(celestialObj, lang = 'zh') {
         const templates = {
             zh: [
                 `${localizedDistance}上空，${localizedName}正在高速飞行。`,
-                `你的上空，人类制造的结构正在移动。`
+                `你的上空，${localizedName}正在移动。`
             ],
             en: [
                 `${localizedDistance} above, ${localizedName} is flying at high speed.`,
-                `Above you, a human-made structure is moving.`
+                `Above you, the ${localizedName} is moving.`
             ],
             ja: [
                 `上空 ${localizedDistance}、${localizedName}が高速で飛行している。`,
-                `上空を、人類が建造した構造物が移動している。`
+                `上空を、${localizedName}が移動している。`
             ]
         };
         if (isManned) {
-            templates.zh.push(`一座载有人类的空间站正在穿越你的头顶。`);
-            templates.en.push(`A human-crewed space station is passing overhead.`);
-            templates.ja.push(`人類を乗せた宇宙ステーションが頭上を通過している。`);
+            templates.zh.push(`一座载有人类的空间站（${localizedName}）正在穿越你的头顶。`);
+            templates.en.push(`A human-crewed space station (${localizedName}) is passing overhead.`);
+            templates.ja.push(`人類を乗せた宇宙ステーション（${localizedName}）が頭上を通過している。`);
         }
         return getRandomTemplate(templates[lang]);
     }
@@ -171,28 +168,25 @@ export function generateCopy(celestialObj, lang = 'zh') {
     // 4. Deep Space Stars Templates
     const starTemplates = {
         zh: [
-            `${localizedDistance}外，${isAnonymousStar ? '一颗暗星' : localizedName}正在经过你的上空。`,
-            `这束光飞行了 ${numericDistance} 年。`,
-            `${localizedDistance}外。`,
-            `你头顶的光，来自数百年前。`
+            `${localizedDistance}外，${localizedName}正在经过你的上空。`,
+            `来自 ${localizedName} 的光，已经飞行了 ${numericDistance} 年。`,
+            `${localizedName}，距离你 ${localizedDistance}。`
         ],
         en: [
-            `${localizedDistance} away, ${isAnonymousStar ? 'a faint star' : localizedName} is passing overhead.`,
-            `This light has traveled for ${numericDistance} years.`,
-            `${localizedDistance} away.`,
-            `The light above you is centuries old.`
+            `${localizedDistance} away, ${localizedName} is passing overhead.`,
+            `The light from ${localizedName} has traveled for ${numericDistance} years.`,
+            `${localizedName}, located ${localizedDistance} away.`
         ],
         ja: [
-            `${localizedDistance}先、${isAnonymousStar ? '暗星' : localizedName}が上空を通過している。`,
-            `この光は ${numericDistance} 年の旅を終えた。`,
-            `${localizedDistance}先。`,
-            `頭上の光は、数百年前に放たれたものだ。`
+            `${localizedDistance}先、${localizedName}が上空を通過している。`,
+            `${localizedName}からの光は、${numericDistance} 年の旅を終えた。`,
+            `あなたから ${localizedDistance} 離れた、${localizedName}。`
         ]
     };
     if (isAnonymousStar) {
-        starTemplates.zh.push(`你的头顶，一颗没有名字的恒星正在发光。`);
-        starTemplates.en.push(`Above you, a nameless star is shining.`);
-        starTemplates.ja.push(`頭上では、名もなき星が輝いている。`);
+        starTemplates.zh.push(`头顶，${localizedName}正在 ${localizedDistance} 外发光。`);
+        starTemplates.en.push(`Above you, ${localizedName} shines from ${localizedDistance} away.`);
+        starTemplates.ja.push(`頭上では、${localizedName}が ${localizedDistance} 先で輝いている。`);
     }
     return getRandomTemplate(starTemplates[lang]);
 }
