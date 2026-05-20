@@ -119,6 +119,8 @@ body {
   max-width: 80% !important;
   margin-bottom: 2rem;
   color: #ececec;
+  /* Fixed min-height ensures 1-line (CN) and 2-line (EN) take the same block space so zenith-dot never moves */
+  min-height: 7rem;
   /* 0.8s transition for smooth language switching fade */
   transition: opacity 0.8s cubic-bezier(0.33, 1, 0.68, 1);
 }
