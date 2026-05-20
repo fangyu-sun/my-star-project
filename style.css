@@ -197,6 +197,11 @@ body {
     left: 50%;
     right: auto;
     transform: translateX(-50%);
+    font-size: 0.65rem; /* Slightly smaller for mobile */
+    gap: 0.2rem;
+  }
+  .lang-selector-inline {
+    font-size: 0.65rem;
   }
 }
 
@@ -218,6 +223,7 @@ body {
   cursor: pointer;
   padding: 0.3rem 0.6rem;
   border-radius: 2px;
+  white-space: nowrap; /* Prevent vertical wrapping */
   /* Extra slow, high-end transition for the gradual lighting-up feel */
   transition: color 0.8s cubic-bezier(0.215, 0.61, 0.355, 1), 
               text-shadow 0.8s cubic-bezier(0.215, 0.61, 0.355, 1);
