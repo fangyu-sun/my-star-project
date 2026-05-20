@@ -110,3 +110,22 @@ export function getZenithCandidates(lat, lon, date, activeSatellites) {
 
     return candidates;
 }
+
+export function updateCandidateAltitude(c, lat, lon, date) {
+    const observer = new Observer(lat, lon, 0);
+    if (c.isPlanet) {
+        const body = Body[c.id];
+        const eq = Equator(body, date, observer, true, true);
+        const hor = Horizon(date, observer, eq.ra, eq.dec, 'normal');
+        c.altitude = hor.altitude;
+    } else if (c.isSatellite) {
+        const look = getSatelliteLookAngles(c.line1, c.line2, lat, lon, date);
+        if (look) {
+            c.altitude = look.elevation;
+            c.distanceStr = look.range.toFixed(0) + " 公里";
+        }
+    } else {
+        const hor = Horizon(date, observer, c.ra, c.dec, 'normal');
+        c.altitude = hor.altitude;
+    }
+}

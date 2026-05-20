@@ -1,5 +1,5 @@
 import '../style.css'
-import { getZenithCandidates } from './astronomy.js'
+import { getZenithCandidates, updateCandidateAltitude } from './astronomy.js'
 import { generateCopy } from './copywriter.js'
 
 let activeSatellites = [];
@@ -178,7 +178,7 @@ document.querySelectorAll('.lang-inline-opt').forEach(btn => {
       elementsToFade.forEach(el => {
         if (el) el.classList.remove('text-breath-out');
       });
-    }, 800);
+    }, 1000);
   });
 });
 
@@ -240,6 +240,21 @@ startBtn.addEventListener('click', () => {
     if (locationTimeInfoEl) {
       locationTimeInfoEl.textContent = `${displayCity} · ${timeString}`;
     }
+
+    if (domeCandidates && domeCandidates.length > 0) {
+      const currentObj = domeCandidates[currentDomeIndex % domeCandidates.length];
+      if (currentObj) {
+        updateCandidateAltitude(currentObj, currentLat, currentLon, date);
+        const currentT = UI_TRANSLATIONS[currentLang];
+        const offZenith = (90 - currentObj.altitude).toFixed(3);
+        const displayId = currentObj.id ? currentObj.id.toUpperCase() : 'STAR';
+        if (currentObj.isSatellite) {
+          metaInfoEl.innerHTML = `${currentObj.name.toUpperCase()} &nbsp;&middot;&nbsp; ${currentT.alt} ${currentObj.altitude.toFixed(3)}&deg; &nbsp;&middot;&nbsp; ${currentT.range} ${currentObj.distanceStr}`;
+        } else {
+          metaInfoEl.innerHTML = `${displayId} &nbsp;&middot;&nbsp; ${currentT.alt} ${currentObj.altitude.toFixed(3)}&deg; &nbsp;&middot;&nbsp; ${currentT.zenithOffset} ${offZenith}&deg;`;
+        }
+      }
+    }
   }
 
   function fetchDomeCandidates() {
@@ -271,10 +286,12 @@ startBtn.addEventListener('click', () => {
     const currentT = UI_TRANSLATIONS[currentLang];
     const offZenith = (90 - currentObj.altitude).toFixed(3);
     
+    const displayId = currentObj.id ? currentObj.id.toUpperCase() : 'STAR';
+    
     if (currentObj.isSatellite) {
       metaInfoEl.innerHTML = `${currentObj.name.toUpperCase()} &nbsp;&middot;&nbsp; ${currentT.alt} ${currentObj.altitude.toFixed(3)}&deg; &nbsp;&middot;&nbsp; ${currentT.range} ${currentObj.distanceStr}`;
     } else {
-      metaInfoEl.innerHTML = `${currentObj.id.toUpperCase()} &nbsp;&middot;&nbsp; ${currentT.alt} ${currentObj.altitude.toFixed(3)}&deg; &nbsp;&middot;&nbsp; ${currentT.zenithOffset} ${offZenith}&deg;`;
+      metaInfoEl.innerHTML = `${displayId} &nbsp;&middot;&nbsp; ${currentT.alt} ${currentObj.altitude.toFixed(3)}&deg; &nbsp;&middot;&nbsp; ${currentT.zenithOffset} ${offZenith}&deg;`;
     }
   }
 
@@ -293,7 +310,7 @@ startBtn.addEventListener('click', () => {
       
       mainCopyEl.classList.remove('text-breath-out');
       metaInfoEl.classList.remove('text-breath-out');
-    }, 800);
+    }, 1000);
   }
 
   // Store globally so it can be invoked during real-time language transitions
@@ -326,7 +343,7 @@ startBtn.addEventListener('click', () => {
   // 4. Start the clocks and carousels
   setInterval(updateTime, 1000);
   setInterval(fetchDomeCandidates, 60000);
-  setInterval(carouselTick, 8000); // 8-second breathing cycle
+  setInterval(carouselTick, 10000); // 10-second breathing cycle
 
   // 5. Query for fresh real-time coordinates in the background silently
   navigator.geolocation.getCurrentPosition(
