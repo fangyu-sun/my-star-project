@@ -1,5 +1,5 @@
 import '../style.css'
-import { getBestZenithObject } from './astronomy.js'
+import { getZenithCandidates } from './astronomy.js'
 import { generateCopy } from './copywriter.js'
 
 let activeSatellites = [];
@@ -45,6 +45,7 @@ const UI_TRANSLATIONS = {
   zh: {
     introText: "此应用需要获取地理位置，<br>以计算此时此刻您上方的宇宙状态。",
     startBtn: "开启连接",
+    geoAcquiring: "正在解析空间坐标...",
     fallbackCity: "北京 (默认位置)",
     cachedCity: "缓存位置",
     geoError: "您的浏览器不支持获取地理位置。",
@@ -58,6 +59,7 @@ const UI_TRANSLATIONS = {
   en: {
     introText: "This application requires location access<br>to calculate the cosmic state directly above you right now.",
     startBtn: "Connect",
+    geoAcquiring: "Acquiring Spatial Coordinates...",
     fallbackCity: "Beijing (Default Location)",
     cachedCity: "Cached Location",
     geoError: "Your browser does not support geolocation.",
@@ -71,6 +73,7 @@ const UI_TRANSLATIONS = {
   ja: {
     introText: "このアプリは現在地情報を取得し、<br>今この瞬間にあなたの真上にある宇宙の状態を计算します。",
     startBtn: "接続開始",
+    geoAcquiring: "空間座標を解析中...",
     fallbackCity: "北京 (デフォルト位置)",
     cachedCity: "キャッシュされた位置",
     geoError: "お使いのブラウザは位置情報の取得に対応していません。",
@@ -187,8 +190,17 @@ startBtn.addEventListener('click', () => {
     return;
   }
 
-  // 1. Immediately read cached or default coordinates
-  const cachedLatStr = localStorage.getItem('zenith_last_lat');
+  // Ceremony feedback
+  startBtn.textContent = t.geoAcquiring;
+  startBtn.style.pointerEvents = "none";
+
+  setTimeout(() => {
+    startBroadcasterSession();
+  }, 1500);
+
+  function startBroadcasterSession() {
+    // 1. Immediately read cached or default coordinates
+    const cachedLatStr = localStorage.getItem('zenith_last_lat');
   const cachedLonStr = localStorage.getItem('zenith_last_lon');
   
   let currentLat, currentLon;
@@ -208,13 +220,15 @@ startBtn.addEventListener('click', () => {
     isCityDynamic = true;
   }
 
-  // 2. Setup the broadcaster updater function using the active scoped variables
-  function updateBroadcaster() {
+  // State variables for the dome carousel
+  let domeCandidates = [];
+  let currentDomeIndex = 0;
+
+  function updateTime() {
     const date = new Date();
     const localeStr = currentLang === 'zh' ? 'zh-CN' : currentLang === 'ja' ? 'ja-JP' : 'en-US';
     const timeString = date.toLocaleTimeString(localeStr, { hour: '2-digit', minute: '2-digit', hour12: false });
     
-    // Resolve dynamic city string translation based on active language if cityString is fallback/cached text
     let displayCity = cityString;
     if (isCityDynamic) {
       displayCity = currentLang === 'zh' ? '北京' : currentLang === 'ja' ? '北京' : 'Beijing';
@@ -226,33 +240,67 @@ startBtn.addEventListener('click', () => {
     if (locationTimeInfoEl) {
       locationTimeInfoEl.textContent = `${displayCity} · ${timeString}`;
     }
-    
+  }
+
+  function fetchDomeCandidates() {
+    const date = new Date();
     try {
-      const bestObj = getBestZenithObject(currentLat, currentLon, date, activeSatellites);
-      const copy = generateCopy(bestObj, currentLang);
-      
-      if (mainCopyEl.textContent !== copy) {
-        mainCopyEl.textContent = copy;
-      }
-      
-      const currentT = UI_TRANSLATIONS[currentLang];
-      if (bestObj) {
-        const offZenith = (90 - bestObj.altitude).toFixed(3);
-        if (bestObj.isSatellite) {
-          metaInfoEl.innerHTML = `${bestObj.name.toUpperCase()} &nbsp;&middot;&nbsp; ${currentT.alt} ${bestObj.altitude.toFixed(3)}&deg; &nbsp;&middot;&nbsp; ${currentT.range} ${bestObj.distanceStr}`;
-        } else {
-          metaInfoEl.innerHTML = `${bestObj.id.toUpperCase()} &nbsp;&middot;&nbsp; ${currentT.alt} ${bestObj.altitude.toFixed(3)}&deg; &nbsp;&middot;&nbsp; ${currentT.zenithOffset} ${offZenith}&deg;`;
-        }
-      } else {
-        metaInfoEl.innerHTML = `${currentT.lat} ${currentLat.toFixed(2)} &nbsp;&middot;&nbsp; ${currentT.lon} ${currentLon.toFixed(2)}`;
-      }
+      domeCandidates = getZenithCandidates(currentLat, currentLon, date, activeSatellites) || [];
     } catch (e) {
       console.error(e);
+      domeCandidates = [];
     }
   }
 
+  function renderCurrentCandidate() {
+    if (!domeCandidates || domeCandidates.length === 0) {
+      const currentT = UI_TRANSLATIONS[currentLang];
+      metaInfoEl.innerHTML = `${currentT.lat} ${currentLat.toFixed(2)} &nbsp;&middot;&nbsp; ${currentT.lon} ${currentLon.toFixed(2)}`;
+      mainCopyEl.textContent = "";
+      return;
+    }
+    
+    if (currentDomeIndex >= domeCandidates.length) {
+      currentDomeIndex = 0;
+    }
+
+    const currentObj = domeCandidates[currentDomeIndex];
+    const copy = generateCopy(currentObj, currentLang);
+    mainCopyEl.textContent = copy;
+    
+    const currentT = UI_TRANSLATIONS[currentLang];
+    const offZenith = (90 - currentObj.altitude).toFixed(3);
+    
+    if (currentObj.isSatellite) {
+      metaInfoEl.innerHTML = `${currentObj.name.toUpperCase()} &nbsp;&middot;&nbsp; ${currentT.alt} ${currentObj.altitude.toFixed(3)}&deg; &nbsp;&middot;&nbsp; ${currentT.range} ${currentObj.distanceStr}`;
+    } else {
+      metaInfoEl.innerHTML = `${currentObj.id.toUpperCase()} &nbsp;&middot;&nbsp; ${currentT.alt} ${currentObj.altitude.toFixed(3)}&deg; &nbsp;&middot;&nbsp; ${currentT.zenithOffset} ${offZenith}&deg;`;
+    }
+  }
+
+  function carouselTick() {
+    if (domeCandidates.length <= 1) return; // No need to breathe/carousel if only 1 or 0 objects
+    
+    mainCopyEl.classList.add('text-breath-out');
+    metaInfoEl.classList.add('text-breath-out');
+    
+    setTimeout(() => {
+      currentDomeIndex++;
+      if (currentDomeIndex >= domeCandidates.length) {
+        currentDomeIndex = 0;
+      }
+      renderCurrentCandidate();
+      
+      mainCopyEl.classList.remove('text-breath-out');
+      metaInfoEl.classList.remove('text-breath-out');
+    }, 800);
+  }
+
   // Store globally so it can be invoked during real-time language transitions
-  window.triggerZenithUpdate = updateBroadcaster;
+  window.triggerZenithUpdate = () => {
+    updateTime();
+    renderCurrentCandidate();
+  };
 
   // Background geocode refiner that can be invoked during language transitions
   window.triggerGeocodeRefine = function() {
@@ -263,18 +311,22 @@ startBtn.addEventListener('click', () => {
           cityString = data.city || data.locality || data.principalSubdivision || UI_TRANSLATIONS[currentLang].cityUnknown;
           localStorage.setItem('zenith_last_city', cityString);
           isCityDynamic = false;
-          updateBroadcaster();
+          updateTime();
         })
         .catch(() => {});
     }
   };
 
-  // 3. Immediately render the cached sky state and transition to broadcaster (no loading screen block!)
-  updateBroadcaster();
+  // 3. Immediately render the cached sky state and transition to broadcaster
+  fetchDomeCandidates();
+  updateTime();
+  renderCurrentCandidate();
   switchScreen(broadcasterScreen);
 
-  // 4. Start the 1-second ticks using the active coordinates
-  let updateInterval = setInterval(updateBroadcaster, 1000);
+  // 4. Start the clocks and carousels
+  setInterval(updateTime, 1000);
+  setInterval(fetchDomeCandidates, 60000);
+  setInterval(carouselTick, 8000); // 8-second breathing cycle
 
   // 5. Query for fresh real-time coordinates in the background silently
   navigator.geolocation.getCurrentPosition(
@@ -282,30 +334,29 @@ startBtn.addEventListener('click', () => {
       const freshLat = position.coords.latitude;
       const freshLon = position.coords.longitude;
       
-      // Update active coordinates
       currentLat = freshLat;
       currentLon = freshLon;
-      
       localStorage.setItem('zenith_last_lat', freshLat);
       localStorage.setItem('zenith_last_lon', freshLon);
 
-      // Perform background geocoding to refine the city name in the selected language
       fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${freshLat}&longitude=${freshLon}&localityLanguage=${currentLang}`)
         .then(res => res.json())
         .then(data => {
           cityString = data.city || data.locality || data.principalSubdivision || UI_TRANSLATIONS[currentLang].cityUnknown;
           localStorage.setItem('zenith_last_city', cityString);
           isCityDynamic = false;
-          updateBroadcaster();
+          updateTime();
         })
         .catch(() => {
           cityString = `${freshLat.toFixed(2)}, ${freshLon.toFixed(2)}`;
           isCityDynamic = false;
-          updateBroadcaster();
+          updateTime();
         });
       
       // Instantly trigger an update with the fresh coordinates
-      updateBroadcaster();
+      fetchDomeCandidates();
+      currentDomeIndex = 0;
+      renderCurrentCandidate();
     },
     (error) => {
       console.warn("Background geolocation refresh failed or was declined.", error);
@@ -313,4 +364,5 @@ startBtn.addEventListener('click', () => {
     },
     { enableHighAccuracy: false, timeout: 15000, maximumAge: 0 }
   );
+  }
 });

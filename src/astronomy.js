@@ -14,7 +14,7 @@ const planets = [
     { id: 'Saturn', name: '土星', isPlanet: true }
 ];
 
-export function getBestZenithObject(lat, lon, date, activeSatellites) {
+export function getZenithCandidates(lat, lon, date, activeSatellites) {
     const observer = new Observer(lat, lon, 0);
     const candidates = [];
 
@@ -24,7 +24,7 @@ export function getBestZenithObject(lat, lon, date, activeSatellites) {
         const eq = Equator(body, date, observer, true, true);
         const hor = Horizon(date, observer, eq.ra, eq.dec, 'normal');
         
-        if (hor.altitude >= 80) {
+        if (hor.altitude >= 60) {
             const distKm = eq.dist * 1.496e8; // AU to km
             let distStr = "";
             if (distKm > 1e8) {
@@ -47,7 +47,7 @@ export function getBestZenithObject(lat, lon, date, activeSatellites) {
     // Evaluate Famous Stars
     for (const star of famousStars) {
         const hor = Horizon(date, observer, star.ra, star.dec, 'normal');
-        if (hor.altitude >= 80) {
+        if (hor.altitude >= 60) {
             candidates.push({
                 ...star,
                 altitude: hor.altitude,
@@ -61,7 +61,7 @@ export function getBestZenithObject(lat, lon, date, activeSatellites) {
     // Evaluate HYG Stars
     for (const star of hygStars) {
         const hor = Horizon(date, observer, star.ra, star.dec, 'normal');
-        if (hor.altitude >= 80) {
+        if (hor.altitude >= 60) {
             const conName = constellations[star.con] ? `位于${constellations[star.con]}的恒星` : '暗星';
             candidates.push({
                 ...star,
@@ -78,7 +78,7 @@ export function getBestZenithObject(lat, lon, date, activeSatellites) {
     const satsToEvaluate = (activeSatellites && activeSatellites.length > 0) ? activeSatellites : fallbackSatellites;
     for (const sat of satsToEvaluate) {
         const look = getSatelliteLookAngles(sat.line1, sat.line2, lat, lon, date);
-        if (look && look.elevation >= 80) {
+        if (look && look.elevation >= 60) {
             candidates.push({
                 id: sat.satelliteId ? `sat_${sat.satelliteId}` : sat.name,
                 name: sat.name,
@@ -108,5 +108,5 @@ export function getBestZenithObject(lat, lon, date, activeSatellites) {
     // Sort by score descending
     candidates.sort((a, b) => b.score - a.score);
 
-    return candidates.length > 0 ? candidates[0] : null;
+    return candidates;
 }
