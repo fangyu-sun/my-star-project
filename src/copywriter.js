@@ -60,6 +60,10 @@ export function generateCopy(celestialObj, lang = 'zh') {
 
     let isAnonymousStar = false;
 
+    let conNameZh = "";
+    let conNameEn = "";
+    let conNameJa = "";
+
     if (isPlanet && planetMap[id]) {
         localizedName = planetMap[id][lang];
         if (lang === 'en') {
@@ -83,18 +87,14 @@ export function generateCopy(celestialObj, lang = 'zh') {
         else if (lang === 'ja') localizedDistance = distanceStr.replace('公里', 'km');
     } else {
         // HYG Star (constellation mapping)
+        isAnonymousStar = true;
         if (con) {
             const conData = constellations[con];
             if (conData) {
-                const conLocalized = conData[lang];
-                if (lang === 'zh') localizedName = `位于${conLocalized}方向的一颗恒星`;
-                else if (lang === 'en') localizedName = `A star in ${conLocalized}`;
-                else if (lang === 'ja') localizedName = `${conLocalized}方向にある恒星`;
-            } else {
-                isAnonymousStar = true;
+                conNameZh = conData['zh'];
+                conNameEn = conData['en'];
+                conNameJa = conData['ja'];
             }
-        } else {
-            isAnonymousStar = true;
         }
         if (lang === 'en') localizedDistance = distanceStr.replace('光年', ' light-years');
         else if (lang === 'ja') localizedDistance = distanceStr.replace('光年', '光年');
@@ -166,27 +166,63 @@ export function generateCopy(celestialObj, lang = 'zh') {
     }
 
     // 4. Deep Space Stars Templates
-    const starTemplates = {
-        zh: [
-            `${localizedDistance}外，${localizedName}正在经过你的上空。`,
-            `来自 ${localizedName} 的光，已经飞行了 ${numericDistance} 年。`,
-            `${localizedName}，距离你 ${localizedDistance}。`
-        ],
-        en: [
-            `${localizedDistance} away, ${localizedName} is passing overhead.`,
-            `The light from ${localizedName} has traveled for ${numericDistance} years.`,
-            `${localizedName}, located ${localizedDistance} away.`
-        ],
-        ja: [
-            `${localizedDistance}先、${localizedName}が上空を通過している。`,
-            `${localizedName}からの光は、${numericDistance} 年の旅を終えた。`,
-            `あなたから ${localizedDistance} 離れた、${localizedName}。`
-        ]
-    };
-    if (isAnonymousStar) {
-        starTemplates.zh.push(`头顶，${localizedName}正在 ${localizedDistance} 外发光。`);
-        starTemplates.en.push(`Above you, ${localizedName} shines from ${localizedDistance} away.`);
-        starTemplates.ja.push(`頭上では、${localizedName}が ${localizedDistance} 先で輝いている。`);
+    let starTemplates = { zh: [], en: [], ja: [] };
+
+    if (!isAnonymousStar) {
+        starTemplates = {
+            zh: [
+                `${localizedDistance}外，${localizedName}正在经过上空。`,
+                `来自${localizedName}的光，飞行了 ${numericDistance} 年。`,
+                `此刻，${localizedName}距离你 ${localizedDistance}。`
+            ],
+            en: [
+                `${localizedDistance} away, ${localizedName} is passing overhead.`,
+                `The light from ${localizedName} has traveled for ${numericDistance} years.`,
+                `At this moment, ${localizedName} is ${localizedDistance} away.`
+            ],
+            ja: [
+                `${localizedDistance}先、${localizedName}が上空を通過している。`,
+                `${localizedName}からの光は、${numericDistance} 年の旅を終えた。`,
+                `今この瞬間、あなたから ${localizedDistance} 離れた、${localizedName}。`
+            ]
+        };
+    } else if (conNameZh) {
+        starTemplates = {
+            zh: [
+                `你的上空，一颗属于${conNameZh}的恒星正在发光，距离 ${localizedDistance}。`,
+                `这束光来自${conNameZh}的一颗恒星，已经飞行了 ${numericDistance} 年。`,
+                `此刻，${localizedDistance}外，一颗${conNameZh}的暗星正在经过。`
+            ],
+            en: [
+                `Above you, a star in ${conNameEn} is shining, ${localizedDistance} away.`,
+                `This light comes from a star in ${conNameEn}, and has traveled for ${numericDistance} years.`,
+                `At this moment, ${localizedDistance} away, a faint star in ${conNameEn} is passing.`
+            ],
+            ja: [
+                `上空では、${conNameJa}に属する恒星が ${localizedDistance} 先で輝いている。`,
+                `この光は${conNameJa}の恒星から放たれ、${numericDistance} 年の旅を終えた。`,
+                `今この瞬間、${localizedDistance}先、${conNameJa}の暗星が通過している。`
+            ]
+        };
+    } else {
+        starTemplates = {
+            zh: [
+                `你的上空，一颗暗星正在发光，距离 ${localizedDistance}。`,
+                `这束光来自深空的一颗暗星，飞行了 ${numericDistance} 年。`,
+                `此刻，${localizedDistance}外，一颗没有名字的恒星正在经过。`
+            ],
+            en: [
+                `Above you, a faint star is shining, ${localizedDistance} away.`,
+                `This light comes from a nameless star, traveling for ${numericDistance} years.`,
+                `At this moment, ${localizedDistance} away, a faint star is passing.`
+            ],
+            ja: [
+                `上空では、暗星が ${localizedDistance} 先で輝いている。`,
+                `深宇宙の暗星から放たれたこの光は、${numericDistance} 年の旅を終えた。`,
+                `今この瞬間、${localizedDistance}先、名もなき星が通過している。`
+            ]
+        };
     }
+    
     return getRandomTemplate(starTemplates[lang]);
 }
