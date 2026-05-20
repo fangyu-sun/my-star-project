@@ -178,7 +178,7 @@ document.querySelectorAll('.lang-inline-opt').forEach(btn => {
       elementsToFade.forEach(el => {
         if (el) el.classList.remove('text-breath-out');
       });
-    }, 1000);
+    }, 2500);
   });
 });
 
@@ -310,7 +310,7 @@ startBtn.addEventListener('click', () => {
       
       mainCopyEl.classList.remove('text-breath-out');
       metaInfoEl.classList.remove('text-breath-out');
-    }, 1000);
+    }, 2500);
   }
 
   // Store globally so it can be invoked during real-time language transitions
@@ -343,7 +343,12 @@ startBtn.addEventListener('click', () => {
   // 4. Start the clocks and carousels
   setInterval(updateTime, 1000);
   setInterval(fetchDomeCandidates, 60000);
-  setInterval(carouselTick, 10000); // 10-second breathing cycle
+  
+  // Offset the first tick by 2.5s so text swapping perfectly aligns with the dimmest point of the CSS animation
+  setTimeout(() => {
+    carouselTick();
+    setInterval(carouselTick, 10000); // 10-second breathing cycle
+  }, 2500);
 
   // 5. Query for fresh real-time coordinates in the background silently
   navigator.geolocation.getCurrentPosition(

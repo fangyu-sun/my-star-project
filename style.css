@@ -113,8 +113,8 @@ body {
 }
 
 @keyframes breathe {
-  0% { opacity: 0.3; box-shadow: 0 0 5px 1px rgba(255, 255, 255, 0.1); }
-  100% { opacity: 1; box-shadow: 0 0 20px 4px rgba(255, 255, 255, 0.5); }
+  0% { opacity: 1; box-shadow: 0 0 20px 4px rgba(255, 255, 255, 0.5); }
+  100% { opacity: 0.3; box-shadow: 0 0 5px 1px rgba(255, 255, 255, 0.1); }
 }
 
 #main-copy {
@@ -124,8 +124,8 @@ body {
   letter-spacing: 0.08em;
   max-width: 80% !important;
   color: #ececec;
-  /* 0.8s transition for smooth language switching fade */
-  transition: opacity 1s cubic-bezier(0.33, 1, 0.68, 1);
+  /* 2.5s transition for ultra-slow meditative fade */
+  transition: opacity 2.5s ease-in-out;
   
   /* Absolute lock */
   position: absolute;
@@ -142,8 +142,8 @@ body {
   color: #555;
   letter-spacing: 0.1em;
   opacity: 0;
-  /* 0.8s transition for smooth language switching fade and hover fade */
-  transition: opacity 0.8s cubic-bezier(0.33, 1, 0.68, 1);
+  /* 2.5s transition for smooth language switching fade and hover fade */
+  transition: opacity 2.5s ease-in-out;
   font-variant-numeric: tabular-nums;
   
   /* Absolute lock */
@@ -169,8 +169,8 @@ body {
   letter-spacing: 0.15em;
   opacity: 0.8;
   font-variant-numeric: tabular-nums;
-  /* 0.8s transition for smooth language switching fade */
-  transition: opacity 1s cubic-bezier(0.33, 1, 0.68, 1);
+  /* 2.5s transition for smooth language switching fade */
+  transition: opacity 2.5s ease-in-out;
 }
 
 .lang-selector-top-right {
@@ -237,12 +237,12 @@ body {
 
 @keyframes inlineLangBreathe {
   0% {
-    color: #444; /* Dim, matching the star's low state */
-    text-shadow: 0 0 2px rgba(136, 136, 136, 0.1);
-  }
-  100% {
     color: #888; /* Bright, matching the star's peak state */
     text-shadow: 0 0 10px rgba(136, 136, 136, 0.4);
+  }
+  100% {
+    color: #444; /* Dim, matching the star's low state */
+    text-shadow: 0 0 2px rgba(136, 136, 136, 0.1);
   }
 }
 
