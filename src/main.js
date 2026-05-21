@@ -183,6 +183,8 @@ document.querySelectorAll('.lang-inline-opt').forEach(btn => {
 });
 
 // --------------------- Connection Initiation ---------------------
+let startBroadcasterSession;
+
 startBtn.addEventListener('click', () => {
   const t = UI_TRANSLATIONS[currentLang];
   if (!navigator.geolocation) {
@@ -195,11 +197,13 @@ startBtn.addEventListener('click', () => {
   startBtn.style.pointerEvents = "none";
 
   setTimeout(() => {
-    startBroadcasterSession();
+    startBroadcasterSession(false);
   }, 1500);
+});
 
-  function startBroadcasterSession() {
-    // 1. Immediately read cached or default coordinates
+startBroadcasterSession = function(isScreensaver = false) {
+  const t = UI_TRANSLATIONS[currentLang];
+  // 1. Immediately read cached or default coordinates
     const cachedLatStr = localStorage.getItem('zenith_last_lat');
   const cachedLonStr = localStorage.getItem('zenith_last_lon');
   
@@ -298,10 +302,18 @@ startBtn.addEventListener('click', () => {
   let carouselIntervalId = null;
   let isTransitioning = false;
 
-  function carouselTick() {
+  function carouselTick(isManual = false) {
     if (domeCandidates.length <= 1 || isTransitioning) return;
     
     isTransitioning = true;
+    
+    const transitionDuration = isManual ? 600 : 2500;
+    
+    if (isManual) {
+      mainCopyEl.classList.add('fast-transition');
+      metaInfoEl.classList.add('fast-transition');
+    }
+    
     mainCopyEl.classList.add('text-breath-out');
     metaInfoEl.classList.add('text-breath-out');
     
@@ -317,8 +329,12 @@ startBtn.addEventListener('click', () => {
       
       setTimeout(() => {
         isTransitioning = false;
-      }, 2500);
-    }, 2500);
+        if (isManual) {
+          mainCopyEl.classList.remove('fast-transition');
+          metaInfoEl.classList.remove('fast-transition');
+        }
+      }, transitionDuration);
+    }, transitionDuration);
   }
 
   function startCarousel() {
@@ -329,7 +345,7 @@ startBtn.addEventListener('click', () => {
   broadcasterScreen.addEventListener('click', (e) => {
     if (e.target.closest('.lang-selector-top-right')) return;
     if (!isTransitioning && domeCandidates.length > 1) {
-      carouselTick();
+      carouselTick(true);
       startCarousel();
     }
   });
@@ -372,40 +388,64 @@ startBtn.addEventListener('click', () => {
   }, 2500);
 
   // 5. Query for fresh real-time coordinates in the background silently
-  navigator.geolocation.getCurrentPosition(
-    (position) => {
-      const freshLat = position.coords.latitude;
-      const freshLon = position.coords.longitude;
-      
-      currentLat = freshLat;
-      currentLon = freshLon;
-      localStorage.setItem('zenith_last_lat', freshLat);
-      localStorage.setItem('zenith_last_lon', freshLon);
+  if (!isScreensaver && navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const freshLat = position.coords.latitude;
+        const freshLon = position.coords.longitude;
+        
+        currentLat = freshLat;
+        currentLon = freshLon;
+        localStorage.setItem('zenith_last_lat', freshLat);
+        localStorage.setItem('zenith_last_lon', freshLon);
 
-      fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${freshLat}&longitude=${freshLon}&localityLanguage=${currentLang}`)
-        .then(res => res.json())
-        .then(data => {
-          cityString = data.city || data.locality || data.principalSubdivision || UI_TRANSLATIONS[currentLang].cityUnknown;
-          localStorage.setItem('zenith_last_city', cityString);
-          isCityDynamic = false;
-          updateTime();
-        })
-        .catch(() => {
-          cityString = `${freshLat.toFixed(2)}, ${freshLon.toFixed(2)}`;
-          isCityDynamic = false;
-          updateTime();
-        });
-      
-      // Instantly trigger an update with the fresh coordinates
-      fetchDomeCandidates();
-      currentDomeIndex = 0;
-      renderCurrentCandidate();
-    },
-    (error) => {
-      console.warn("Background geolocation refresh failed or was declined.", error);
-      // We do not show any annoying error alert since the cached/default location is already running beautifully!
-    },
-    { enableHighAccuracy: false, timeout: 15000, maximumAge: 0 }
-  );
+        fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${freshLat}&longitude=${freshLon}&localityLanguage=${currentLang}`)
+          .then(res => res.json())
+          .then(data => {
+            cityString = data.city || data.locality || data.principalSubdivision || UI_TRANSLATIONS[currentLang].cityUnknown;
+            localStorage.setItem('zenith_last_city', cityString);
+            isCityDynamic = false;
+            updateTime();
+          })
+          .catch(() => {
+            cityString = `${freshLat.toFixed(2)}, ${freshLon.toFixed(2)}`;
+            isCityDynamic = false;
+            updateTime();
+          });
+        
+        // Instantly trigger an update with the fresh coordinates
+        fetchDomeCandidates();
+        currentDomeIndex = 0;
+        renderCurrentCandidate();
+      },
+      (error) => {
+        console.warn("Background geolocation refresh failed or was declined.", error);
+        // We do not show any annoying error alert since the cached/default location is already running beautifully!
+      },
+      { enableHighAccuracy: false, timeout: 15000, maximumAge: 0 }
+    );
   }
-});
+  };
+
+  // --------------------- Screensaver Mode Init ---------------------
+  const urlParams = new URLSearchParams(window.location.search);
+  if (urlParams.get('mode') === 'screensaver') {
+    const ssLat = urlParams.get('lat');
+    const ssLon = urlParams.get('lon');
+    const ssLang = urlParams.get('lang');
+    
+    if (ssLat && ssLon) {
+      localStorage.setItem('zenith_last_lat', ssLat);
+      localStorage.setItem('zenith_last_lon', ssLon);
+      localStorage.removeItem('zenith_last_city');
+    }
+    
+    if (ssLang) {
+      currentLang = ssLang;
+      localStorage.setItem('zenith_lang', ssLang);
+      applyLanguage();
+    }
+    
+    document.getElementById('intro').classList.remove('active');
+    startBroadcasterSession(true);
+  }

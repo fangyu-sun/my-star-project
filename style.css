@@ -263,6 +263,10 @@ body {
   opacity: 0 !important;
 }
 
+.fast-transition {
+  transition: opacity 0.6s ease-in-out !important;
+}
+
 /* English Sans-Serif Calm Typography */
 body.lang-en {
   font-family: var(--font-sans);
