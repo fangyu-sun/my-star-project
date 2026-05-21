@@ -295,9 +295,13 @@ startBtn.addEventListener('click', () => {
     }
   }
 
+  let carouselIntervalId = null;
+  let isTransitioning = false;
+
   function carouselTick() {
-    if (domeCandidates.length <= 1) return; // No need to breathe/carousel if only 1 or 0 objects
+    if (domeCandidates.length <= 1 || isTransitioning) return;
     
+    isTransitioning = true;
     mainCopyEl.classList.add('text-breath-out');
     metaInfoEl.classList.add('text-breath-out');
     
@@ -310,8 +314,25 @@ startBtn.addEventListener('click', () => {
       
       mainCopyEl.classList.remove('text-breath-out');
       metaInfoEl.classList.remove('text-breath-out');
+      
+      setTimeout(() => {
+        isTransitioning = false;
+      }, 2500);
     }, 2500);
   }
+
+  function startCarousel() {
+    if (carouselIntervalId) clearInterval(carouselIntervalId);
+    carouselIntervalId = setInterval(carouselTick, 10000); // 10-second breathing cycle
+  }
+
+  broadcasterScreen.addEventListener('click', (e) => {
+    if (e.target.closest('.lang-selector-top-right')) return;
+    if (!isTransitioning && domeCandidates.length > 1) {
+      carouselTick();
+      startCarousel();
+    }
+  });
 
   // Store globally so it can be invoked during real-time language transitions
   window.triggerZenithUpdate = () => {
@@ -347,7 +368,7 @@ startBtn.addEventListener('click', () => {
   // Offset the first tick by 2.5s so text swapping perfectly aligns with the dimmest point of the CSS animation
   setTimeout(() => {
     carouselTick();
-    setInterval(carouselTick, 10000); // 10-second breathing cycle
+    startCarousel();
   }, 2500);
 
   // 5. Query for fresh real-time coordinates in the background silently
