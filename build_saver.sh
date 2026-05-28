@@ -37,12 +37,15 @@ cat << 'EOF' > MyUniverseSaver.saver/Contents/Info.plist
     <string>1</string>
     <key>NSPrincipalClass</key>
     <string>MyUniverseSaverView</string>
+    <key>NSLocationWhenInUseUsageDescription</key>
+    <string>My Universe uses your location to calculate real-time celestial positions directly above you.</string>
 </dict>
 </plist>
 EOF
 
 echo "[4/6] 📦 Copying Web Dist to Resources..."
 cp -R dist/* MyUniverseSaver.saver/Contents/Resources/web/
+cp macos-saver/Resources/cities.json MyUniverseSaver.saver/Contents/Resources/cities.json
 
 echo "[5/6] 🍎 Compiling Swift Source (Targeting macOS 11.0)..."
 swiftc \
@@ -57,6 +60,11 @@ swiftc \
 echo "[6/6] 🔍 Verifying Bundle Structure and Relative Paths..."
 if [ ! -f "MyUniverseSaver.saver/Contents/Resources/web/index.html" ]; then
     echo "❌ ERROR: index.html not found in Resources/web/"
+    exit 1
+fi
+
+if [ ! -f "MyUniverseSaver.saver/Contents/Resources/cities.json" ]; then
+    echo "❌ ERROR: cities.json not found in Resources/"
     exit 1
 fi
 

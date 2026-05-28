@@ -27,11 +27,16 @@ class MyUniverseSaverView: ScreenSaverView {
         // Inject Configuration from ScreenSaverDefaults
         let defaults = ScreenSaverDefaults(forModuleWithName: "com.sunfangyu.MyUniverseSaver")
         
-        let lat = defaults?.double(forKey: "latitude") ?? 39.9042
-        let lon = defaults?.double(forKey: "longitude") ?? 116.4074
+        let lat = defaults?.double(forKey: "latitude") ?? -31.9523
+        let lon = defaults?.double(forKey: "longitude") ?? 115.8613
         let lang = defaults?.string(forKey: "language") ?? "zh"
         let brightness = defaults?.double(forKey: "brightness")
         let displayFrequency = defaults?.integer(forKey: "displayFrequency")
+        
+        let locationMode = defaults?.string(forKey: "locationMode") ?? "default"
+        let cityName = defaults?.string(forKey: "cityName") ?? "Perth"
+        let countryName = defaults?.string(forKey: "countryName") ?? "Australia"
+        let timezone = defaults?.string(forKey: "timezone") ?? ""
         
         let safeBrightness = brightness == 0 ? 1.0 : brightness ?? 1.0
         let safeFrequency = displayFrequency == 0 ? 10 : displayFrequency ?? 10
@@ -41,6 +46,10 @@ class MyUniverseSaverView: ScreenSaverView {
             runtime: "screensaver",
             latitude: \(lat),
             longitude: \(lon),
+            locationMode: "\(locationMode)",
+            cityName: "\(cityName)",
+            countryName: "\(countryName)",
+            timezone: "\(timezone)",
             language: "\(lang)",
             brightness: \(safeBrightness),
             displayFrequency: \(safeFrequency),

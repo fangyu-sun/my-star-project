@@ -20,5 +20,7 @@
     <string>1</string>
     <key>NSPrincipalClass</key>
     <string>MyUniverseSaverView</string>
+    <key>NSLocationWhenInUseUsageDescription</key>
+    <string>My Universe uses your location to calculate real-time celestial positions directly above you.</string>
 </dict>
 </plist>

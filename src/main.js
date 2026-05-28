@@ -208,7 +208,16 @@ startBroadcasterSession = function(isScreensaverMode = false, config = {}) {
   if (isScreensaverMode) {
     currentLat = config.latitude || 0;
     currentLon = config.longitude || 0;
-    cityString = config.cityName || "";
+    
+    if (config.locationMode === 'city' || config.locationMode === 'default') {
+      cityString = config.countryName ? `${config.cityName}, ${config.countryName}` : config.cityName;
+    } else if (config.locationMode === 'currentLocation') {
+      const isZh = config.language === 'zh' || config.language === 'zh-TW';
+      cityString = isZh ? "当前位置" : "Current Location";
+    } else {
+      cityString = `Lat: ${currentLat.toFixed(2)}, Lon: ${currentLon.toFixed(2)}`;
+    }
+    
     isCityDynamic = false;
   } else {
     // 1. Immediately read cached or default coordinates
