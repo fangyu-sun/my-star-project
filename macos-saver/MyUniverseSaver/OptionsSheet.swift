@@ -17,7 +17,8 @@ struct City: Codable {
 class OptionsWindowController: NSWindowController, NSComboBoxDataSource, NSComboBoxDelegate, NSTextFieldDelegate, CLLocationManagerDelegate {
     
     static let shared = OptionsWindowController()
-    let defaults = ScreenSaverDefaults(forModuleWithName: "com.sunfangyu.MyUniverseSaver")
+    let defaultsModuleName = "com.fangyu.MyUniverseSaver"
+    let defaults: ScreenSaverDefaults?
     
     // CoreLocation
     let locationManager = CLLocationManager()
@@ -41,6 +42,7 @@ class OptionsWindowController: NSWindowController, NSComboBoxDataSource, NSCombo
     let freqLabel = NSTextField(labelWithString: "10s")
     
     init() {
+        defaults = ScreenSaverDefaults(forModuleWithName: defaultsModuleName)
         // Adjusted window height for compactness
         let windowRect = NSRect(x: 0, y: 0, width: 480, height: 260)
         let window = NSPanel(contentRect: windowRect, styleMask: [.titled], backing: .buffered, defer: false)
@@ -64,17 +66,21 @@ class OptionsWindowController: NSWindowController, NSComboBoxDataSource, NSCombo
         let lat = defaults?.double(forKey: "latitude") ?? 0.0
         let lon = defaults?.double(forKey: "longitude") ?? 0.0
         let mode = defaults?.string(forKey: "locationMode")
+        let cityName = defaults?.string(forKey: "cityName")
         
-        // If it's an uninitialized state or the old 0.0 bug, migrate to strict Pyongyang defaults
-        if (lat == 0.0 && lon == 0.0) || mode == nil {
-            defaults?.set(39.0392, forKey: "latitude")
-            defaults?.set(125.7625, forKey: "longitude")
+        let isBadOldDefault = (lat == 0.0 && lon == 0.0) && (mode == "default" || mode == "DEFAULT" || mode == nil || cityName == "Perth" || cityName == "Default" || cityName == nil || cityName == "")
+        
+        // If it's an uninitialized state or the old 0.0 bug, migrate to strict Perth defaults
+        if isBadOldDefault || mode == nil {
+            defaults?.set(-31.9523, forKey: "latitude")
+            defaults?.set(115.8613, forKey: "longitude")
             defaults?.set("default", forKey: "locationMode")
-            defaults?.set("Pyongyang", forKey: "cityName")
-            defaults?.set("Pyongyang", forKey: "regionName")
-            defaults?.set("North Korea", forKey: "countryName")
-            defaults?.set("KP", forKey: "countryCode")
-            defaults?.set("Asia/Pyongyang", forKey: "timezone")
+            defaults?.set("Perth", forKey: "cityName")
+            defaults?.set("Western Australia", forKey: "regionName")
+            defaults?.set("Australia", forKey: "countryName")
+            defaults?.set("AU", forKey: "countryCode")
+            defaults?.set("Australia/Perth", forKey: "timezone")
+            defaults?.set(Date().timeIntervalSince1970, forKey: "locationUpdatedAt")
             defaults?.synchronize()
         }
     }

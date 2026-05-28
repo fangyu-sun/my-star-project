@@ -7,7 +7,7 @@
     <key>CFBundleExecutable</key>
     <string>MyUniverseSaver</string>
     <key>CFBundleIdentifier</key>
-    <string>com.sunfangyu.MyUniverseSaver</string>
+    <string>com.fangyu.MyUniverseSaver</string>
     <key>CFBundleInfoDictionaryVersion</key>
     <string>6.0</string>
     <key>CFBundleName</key>
@@ -22,5 +22,7 @@
     <string>MyUniverseSaverView</string>
     <key>NSLocationWhenInUseUsageDescription</key>
     <string>My Universe uses your location to calculate real-time celestial positions directly above you.</string>
+    <key>MyUniverseBuildTimestamp</key>
+    <string>1779981195</string>
 </dict>
 </plist>

@@ -206,20 +206,49 @@ startBroadcasterSession = function(isScreensaverMode = false, config = {}) {
   let currentLat, currentLon, cityString, isCityDynamic;
 
   if (isScreensaverMode) {
-    currentLat = config.latitude || 0;
-    currentLon = config.longitude || 0;
+    currentLat = typeof config.latitude === 'number' ? config.latitude : -31.9523;
+    currentLon = typeof config.longitude === 'number' ? config.longitude : 115.8613;
     
     if (config.locationMode === 'city' || config.locationMode === 'default') {
       let parts = [config.cityName, config.regionName, config.countryName].filter(Boolean);
       cityString = parts.join(", ");
-    } else if (config.locationMode === 'currentLocation') {
+    } else if (config.locationMode === 'runtimeCurrentLocation') {
       const isZh = config.language === 'zh' || config.language === 'zh-TW';
-      cityString = isZh ? "当前位置" : "Current Location";
+      cityString = isZh ? "当前位置 (设备实时)" : "Current Location (Device)";
+    } else if (config.locationMode === 'currentLocation' || config.locationMode === 'savedCurrentLocation') {
+      const isZh = config.language === 'zh' || config.language === 'zh-TW';
+      cityString = isZh ? "当前位置 (已保存)" : "Current Location (Saved)";
     } else {
       cityString = `Lat: ${currentLat.toFixed(4)}, Lon: ${currentLon.toFixed(4)}`;
     }
     
     isCityDynamic = false;
+    
+    // Debug Overlay for Screensaver mode
+    if (config.debug) {
+      const debugDiv = document.createElement('div');
+      debugDiv.style.position = 'absolute';
+      debugDiv.style.bottom = '10px';
+      debugDiv.style.left = '10px';
+      debugDiv.style.color = 'rgba(0, 255, 0, 0.8)';
+      debugDiv.style.fontFamily = 'monospace';
+      debugDiv.style.fontSize = '12px';
+      debugDiv.style.zIndex = '9999';
+      debugDiv.style.backgroundColor = 'rgba(0,0,0,0.5)';
+      debugDiv.style.padding = '8px';
+      debugDiv.style.pointerEvents = 'none';
+      debugDiv.innerHTML = `
+        <strong>MyUniverseSaver DEBUG</strong><br>
+        runtime: screensaver<br>
+        latitude: ${currentLat}<br>
+        longitude: ${currentLon}<br>
+        locationMode: ${config.locationMode}<br>
+        cityName: ${config.cityName}<br>
+        data source: injected config<br>
+        buildTimestamp: ${config.buildTimestamp || 'unknown'}
+      `;
+      document.body.appendChild(debugDiv);
+    }
   } else {
     // 1. Immediately read cached or default coordinates
     const cachedLatStr = localStorage.getItem('zenith_last_lat');

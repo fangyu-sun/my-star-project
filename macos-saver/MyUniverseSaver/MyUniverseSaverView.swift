@@ -76,7 +76,8 @@ class MyUniverseSaverView: ScreenSaverView, CLLocationManagerDelegate {
         let webConfiguration = WKWebViewConfiguration()
         webConfiguration.defaultWebpagePreferences = prefs
         
-        let defaults = ScreenSaverDefaults(forModuleWithName: "com.sunfangyu.MyUniverseSaver")
+        let defaultsModuleName = "com.fangyu.MyUniverseSaver"
+        let defaults = ScreenSaverDefaults(forModuleWithName: defaultsModuleName)
         
         let lang = defaults?.string(forKey: "language") ?? "zh"
         let brightness = defaults?.double(forKey: "brightness")
@@ -84,14 +85,15 @@ class MyUniverseSaverView: ScreenSaverView, CLLocationManagerDelegate {
         let safeBrightness = brightness == 0 ? 1.0 : brightness ?? 1.0
         let safeFrequency = displayFrequency == 0 ? 10 : displayFrequency ?? 10
         
-        var finalLat = defaultLat
-        var finalLon = defaultLon
+        // Final fallback constants (Perth)
+        var finalLat: Double = -31.9523
+        var finalLon: Double = 115.8613
         var finalLocationMode = "default"
-        var finalCityName = "Pyongyang"
-        var finalRegionName = "Pyongyang"
-        var finalCountryName = "North Korea"
-        var finalCountryCode = "KP"
-        var finalTimezone = "Asia/Pyongyang"
+        var finalCityName = "Perth"
+        var finalRegionName = "Western Australia"
+        var finalCountryName = "Australia"
+        var finalCountryCode = "AU"
+        var finalTimezone = "Australia/Perth"
         
         if let validLocation = location {
             // Priority 1: Runtime CoreLocation succeeded
@@ -109,8 +111,8 @@ class MyUniverseSaverView: ScreenSaverView, CLLocationManagerDelegate {
                let savedLat = defaults?.double(forKey: "latitude"),
                let savedLon = defaults?.double(forKey: "longitude") {
                 
-                // Only accept if not the old 0.0 bug
-                if savedLat != 0.0 || savedLon != 0.0 {
+                // Exclude invalid (0.0, 0.0) from being used unless it was manually specified
+                if (savedLat != 0.0 || savedLon != 0.0) || savedMode == "manual" {
                     finalLat = savedLat
                     finalLon = savedLon
                     finalLocationMode = savedMode
@@ -122,6 +124,22 @@ class MyUniverseSaverView: ScreenSaverView, CLLocationManagerDelegate {
                 }
             }
         }
+        
+        // Grab build timestamp from Info.plist
+        let bundle = Bundle(for: type(of: self))
+        let buildTimestamp = bundle.object(forInfoDictionaryKey: "MyUniverseBuildTimestamp") as? String ?? "unknown"
+        
+        print("--- MyUniverseSaver final config ---")
+        print("latitude: \(finalLat)")
+        print("longitude: \(finalLon)")
+        print("locationMode: \(finalLocationMode)")
+        print("cityName: \(finalCityName)")
+        print("regionName: \(finalRegionName)")
+        print("countryName: \(finalCountryName)")
+        print("language: \(lang)")
+        print("displayFrequency: \(safeFrequency)")
+        print("buildTimestamp: \(buildTimestamp)")
+        print("------------------------------------")
         
         let scriptSource = """
         window.MY_UNIVERSE_CONFIG = {
@@ -137,7 +155,8 @@ class MyUniverseSaverView: ScreenSaverView, CLLocationManagerDelegate {
             language: "\(lang)",
             brightness: \(safeBrightness),
             displayFrequency: \(safeFrequency),
-            debug: false
+            debug: \(defaults?.bool(forKey: "debug") ?? false),
+            buildTimestamp: "\(buildTimestamp)"
         };
         """
         
