@@ -19,10 +19,10 @@
     <key>CFBundleVersion</key>
     <string>1</string>
     <key>NSPrincipalClass</key>
-    <string>MyUniverseSaverView</string>
+    <string>MyUniverseView</string>
     <key>NSLocationWhenInUseUsageDescription</key>
     <string>My Universe uses your location to calculate real-time celestial positions directly above you.</string>
     <key>MyUniverseBuildTimestamp</key>
-    <string>1779981195</string>
+    <string>1779982440</string>
 </dict>
 </plist>

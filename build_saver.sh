@@ -93,7 +93,7 @@ if [ "$ACTION" == "--install-dev" ]; then
     <key>CFBundleVersion</key>
     <string>1</string>
     <key>NSPrincipalClass</key>
-    <string>MyUniverseSaverView</string>
+    <string>MyUniverseView</string>
     <key>NSLocationWhenInUseUsageDescription</key>
     <string>My Universe uses your location to calculate real-time celestial positions directly above you.</string>
     <key>MyUniverseBuildTimestamp</key>
@@ -116,21 +116,59 @@ EOF
       macos-saver/MyUniverseSaver/MyUniverseSaverView.swift \
       macos-saver/MyUniverseSaver/OptionsSheet.swift
       
+    # IMPORTANT: Ensure executable permission
+    chmod +x MyUniverseSaver.saver/Contents/MacOS/MyUniverseSaver
+      
     echo "[6/7] Verifying structural integrity..."
+    
+    # Bundle verification
     if [ ! -f "MyUniverseSaver.saver/Contents/Resources/web/index.html" ]; then
         echo "❌ ERROR: index.html not found!"
         exit 1
     fi
     
-    if [ ! -f "MyUniverseSaver.saver/Contents/Resources/cities.json" ]; then
-        echo "❌ ERROR: cities.json not found!"
+    if grep -q 'src="/' MyUniverseSaver.saver/Contents/Resources/web/index.html || grep -q 'href="/' MyUniverseSaver.saver/Contents/Resources/web/index.html; then
+        echo "❌ ERROR: Absolute paths detected in index.html!"
         exit 1
     fi
     
-    if grep -q 'src="/' MyUniverseSaver.saver/Contents/Resources/web/index.html || grep -q 'href="/' MyUniverseSaver.saver/Contents/Resources/web/index.html; then
-        echo "❌ ERROR: Absolute paths detected in index.html! Vite base path configuration failed."
+    # Plist verification
+    PRINCIPAL_CLASS=$(plutil -extract NSPrincipalClass raw MyUniverseSaver.saver/Contents/Info.plist)
+    if [ "$PRINCIPAL_CLASS" != "MyUniverseView" ]; then
+        echo "❌ ERROR: NSPrincipalClass must be MyUniverseView. Found: $PRINCIPAL_CLASS"
         exit 1
     fi
+    
+    EXECUTABLE_NAME=$(plutil -extract CFBundleExecutable raw MyUniverseSaver.saver/Contents/Info.plist)
+    if [ "$EXECUTABLE_NAME" != "MyUniverseSaver" ]; then
+        echo "❌ ERROR: CFBundleExecutable must be MyUniverseSaver. Found: $EXECUTABLE_NAME"
+        exit 1
+    fi
+    
+    # Binary verification
+    if [ ! -f "MyUniverseSaver.saver/Contents/MacOS/MyUniverseSaver" ]; then
+        echo "❌ ERROR: Executable MyUniverseSaver.saver/Contents/MacOS/MyUniverseSaver not found!"
+        exit 1
+    fi
+    
+    if [ ! -x "MyUniverseSaver.saver/Contents/MacOS/MyUniverseSaver" ]; then
+        echo "❌ ERROR: Executable does not have execution permissions!"
+        exit 1
+    fi
+    
+    # NM Symbol verification
+    NM_OUTPUT=$(nm MyUniverseSaver.saver/Contents/MacOS/MyUniverseSaver || true)
+    if ! echo "$NM_OUTPUT" | grep -q 'MyUniverseView'; then
+        echo "❌ ERROR: nm check failed! Objective-C class MyUniverseView is not exported."
+        echo "nm output:"
+        echo "$NM_OUTPUT"
+        exit 1
+    fi
+    
+    echo "✅ Info.plist NSPrincipalClass: $PRINCIPAL_CLASS"
+    echo "✅ Info.plist CFBundleExecutable: $EXECUTABLE_NAME"
+    echo "✅ Executable file exists and is executable."
+    echo "✅ Objective-C class MyUniverseView successfully exported."
     
     echo "[7/7] Installing & Clearing caches..."
     clean_cache
@@ -138,11 +176,16 @@ EOF
     
     echo "======================================================"
     echo "✅ Install Complete!"
-    echo "👉 Installed path: $USER_SAVER_PATH"
-    echo "👉 CFBundleIdentifier: $BUNDLE_ID"
-    echo "👉 Build Timestamp: $BUILD_TIMESTAMP"
-    echo "👉 Web index path verified."
-    echo "👉 cities.json path verified."
+    echo "👉 Installed saver path: $USER_SAVER_PATH"
+    echo "👉 CFBundleIdentifier: $(plutil -extract CFBundleIdentifier raw MyUniverseSaver.saver/Contents/Info.plist)"
+    echo "👉 CFBundlePackageType: $(plutil -extract CFBundlePackageType raw MyUniverseSaver.saver/Contents/Info.plist)"
+    echo "👉 CFBundleExecutable: $EXECUTABLE_NAME"
+    echo "👉 NSPrincipalClass: $PRINCIPAL_CLASS"
+    echo "👉 Actual executable path: $USER_SAVER_PATH/Contents/MacOS/MyUniverseSaver"
+    echo "👉 Executable exists: true"
+    echo "👉 Executable permission: $(stat -f "%Sp" "$USER_SAVER_PATH/Contents/MacOS/MyUniverseSaver")"
+    echo "👉 Whether nm contains MyUniverseView: true"
+    echo "👉 Build timestamp: $BUILD_TIMESTAMP"
     echo ""
     echo "To configure, go to: System Settings -> Screen Saver -> MyUniverseSaver -> Options"
     echo "Or open settings directly with:"
