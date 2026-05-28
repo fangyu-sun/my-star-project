@@ -28,10 +28,9 @@ class OptionsWindowController: NSWindowController, NSComboBoxDataSource, NSCombo
     var filteredCities: [City] = []
     
     // UI Elements
-    let statusLabel = NSTextField(labelWithString: "Current Location:\nNot set.")
-    
     let citySearchBox = NSComboBox()
     let currentLocationBtn = NSButton(title: "Use Current Location", target: nil, action: nil)
+    let inlineErrorLabel = NSTextField(labelWithString: "")
     
     let latField = NSTextField()
     let lonField = NSTextField()
@@ -42,7 +41,8 @@ class OptionsWindowController: NSWindowController, NSComboBoxDataSource, NSCombo
     let freqLabel = NSTextField(labelWithString: "10s")
     
     init() {
-        let windowRect = NSRect(x: 0, y: 0, width: 480, height: 380)
+        // Adjusted window height for compactness
+        let windowRect = NSRect(x: 0, y: 0, width: 480, height: 260)
         let window = NSPanel(contentRect: windowRect, styleMask: [.titled], backing: .buffered, defer: false)
         window.title = "My Universe Settings"
         super.init(window: window)
@@ -52,30 +52,29 @@ class OptionsWindowController: NSWindowController, NSComboBoxDataSource, NSCombo
         migrateLegacyDefaults()
         setupUI()
         loadCitiesDatabase()
-        updateStatusLabel()
-        loadDisplayDefaults()
+        loadAllDefaults()
     }
     
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
     
-    // MARK: - Legacy Migration
+    // MARK: - Legacy Migration & Pyongyang Fallback
     private func migrateLegacyDefaults() {
         let lat = defaults?.double(forKey: "latitude") ?? 0.0
         let lon = defaults?.double(forKey: "longitude") ?? 0.0
         let mode = defaults?.string(forKey: "locationMode")
         
-        // If it's an uninitialized state or the old 0.0 bug, migrate to strict Perth defaults
+        // If it's an uninitialized state or the old 0.0 bug, migrate to strict Pyongyang defaults
         if (lat == 0.0 && lon == 0.0) || mode == nil {
-            defaults?.set(-31.9523, forKey: "latitude")
-            defaults?.set(115.8613, forKey: "longitude")
+            defaults?.set(39.0392, forKey: "latitude")
+            defaults?.set(125.7625, forKey: "longitude")
             defaults?.set("default", forKey: "locationMode")
-            defaults?.set("Perth", forKey: "cityName")
-            defaults?.set("Western Australia", forKey: "regionName")
-            defaults?.set("Australia", forKey: "countryName")
-            defaults?.set("AU", forKey: "countryCode")
-            defaults?.set("Australia/Perth", forKey: "timezone")
+            defaults?.set("Pyongyang", forKey: "cityName")
+            defaults?.set("Pyongyang", forKey: "regionName")
+            defaults?.set("North Korea", forKey: "countryName")
+            defaults?.set("KP", forKey: "countryCode")
+            defaults?.set("Asia/Pyongyang", forKey: "timezone")
             defaults?.synchronize()
         }
     }
@@ -87,7 +86,7 @@ class OptionsWindowController: NSWindowController, NSComboBoxDataSource, NSCombo
         let mainStack = NSStackView()
         mainStack.orientation = .vertical
         mainStack.alignment = .leading
-        mainStack.spacing = 20
+        mainStack.spacing = 15
         mainStack.translatesAutoresizingMaskIntoConstraints = false
         contentView.addSubview(mainStack)
         
@@ -96,20 +95,6 @@ class OptionsWindowController: NSWindowController, NSComboBoxDataSource, NSCombo
             mainStack.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
             mainStack.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20)
         ])
-        
-        // --- Status Area ---
-        statusLabel.isEditable = false
-        statusLabel.isSelectable = true
-        statusLabel.isBordered = false
-        statusLabel.backgroundColor = .clear
-        statusLabel.font = NSFont.systemFont(ofSize: 13, weight: .medium)
-        statusLabel.textColor = .secondaryLabelColor
-        mainStack.addArrangedSubview(statusLabel)
-        
-        let separator1 = NSBox()
-        separator1.boxType = .separator
-        separator1.widthAnchor.constraint(equalToConstant: 440).isActive = true
-        mainStack.addArrangedSubview(separator1)
         
         // --- Location Setup Area ---
         let locLabel = NSTextField(labelWithString: "Location Configuration")
@@ -130,7 +115,7 @@ class OptionsWindowController: NSWindowController, NSComboBoxDataSource, NSCombo
         citySearchBox.delegate = self
         citySearchBox.completes = true
         citySearchBox.widthAnchor.constraint(equalToConstant: 200).isActive = true
-        citySearchBox.placeholderString = "Search e.g. Perth"
+        citySearchBox.placeholderString = "Search e.g. Pyongyang"
         
         currentLocationBtn.target = self
         currentLocationBtn.action = #selector(useCurrentLocation)
@@ -139,6 +124,23 @@ class OptionsWindowController: NSWindowController, NSComboBoxDataSource, NSCombo
         cityRow.addArrangedSubview(citySearchBox)
         cityRow.addArrangedSubview(currentLocationBtn)
         mainStack.addArrangedSubview(cityRow)
+        
+        // Inline Error Label
+        inlineErrorLabel.textColor = .systemRed
+        inlineErrorLabel.isEditable = false
+        inlineErrorLabel.isSelectable = false
+        inlineErrorLabel.isBordered = false
+        inlineErrorLabel.backgroundColor = .clear
+        inlineErrorLabel.font = NSFont.systemFont(ofSize: 11)
+        inlineErrorLabel.isHidden = true
+        
+        let errorRow = NSStackView()
+        errorRow.orientation = .horizontal
+        let spacer = NSView()
+        spacer.widthAnchor.constraint(equalToConstant: 60).isActive = true
+        errorRow.addArrangedSubview(spacer)
+        errorRow.addArrangedSubview(inlineErrorLabel)
+        mainStack.addArrangedSubview(errorRow)
         
         // Manual Coords Row
         let coordsRow = NSStackView()
@@ -210,35 +212,12 @@ class OptionsWindowController: NSWindowController, NSComboBoxDataSource, NSCombo
     }
     
     // MARK: - State Management
-    private func updateStatusLabel() {
-        let mode = defaults?.string(forKey: "locationMode") ?? "default"
-        let lat = defaults?.double(forKey: "latitude") ?? -31.9523
-        let lon = defaults?.double(forKey: "longitude") ?? 115.8613
-        let cName = defaults?.string(forKey: "cityName") ?? "Perth"
-        let rName = defaults?.string(forKey: "regionName") ?? "Western Australia"
-        let cnName = defaults?.string(forKey: "countryName") ?? "Australia"
-        
-        var header = "Current Location:"
-        if mode == "default" {
-            header = "Current Location:\nNot set. Using default:"
-        }
-        
-        var locDisplay = ""
-        if mode == "city" || mode == "default" {
-            locDisplay = "\(cName), \(rName), \(cnName)\nLatitude: \(lat)\nLongitude: \(lon)\nSource: \(mode.capitalized)"
-        } else if mode == "currentLocation" {
-            locDisplay = "Current Location (Device)\nLatitude: \(lat)\nLongitude: \(lon)\nSource: CoreLocation"
-        } else {
-            locDisplay = "Manual Coordinates\nLatitude: \(lat)\nLongitude: \(lon)\nSource: Manual"
-        }
-        
-        statusLabel.stringValue = "\(header)\n\(locDisplay)"
-        
+    private func loadAllDefaults() {
+        let lat = defaults?.double(forKey: "latitude") ?? 39.0392
+        let lon = defaults?.double(forKey: "longitude") ?? 125.7625
         latField.stringValue = "\(lat)"
         lonField.stringValue = "\(lon)"
-    }
-    
-    private func loadDisplayDefaults() {
+        
         let lang = defaults?.string(forKey: "language") ?? "zh"
         switch lang {
         case "zh": langPopUp.selectItem(at: 0)
@@ -279,10 +258,11 @@ class OptionsWindowController: NSWindowController, NSComboBoxDataSource, NSCombo
     }
     
     @objc private func saveManualCoords() {
+        hideError()
         if let lat = Double(latField.stringValue), let lon = Double(lonField.stringValue) {
             if lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180 {
                 if lat == 0.0 && lon == 0.0 {
-                    showAlert("Warning", "0.0, 0.0 is generally an invalid ocean coordinate. Please enter valid coordinates.")
+                    showInlineError("0.0, 0.0 is an invalid coordinate.")
                     return
                 }
                 defaults?.set(lat, forKey: "latitude")
@@ -290,18 +270,19 @@ class OptionsWindowController: NSWindowController, NSComboBoxDataSource, NSCombo
                 defaults?.set("manual", forKey: "locationMode")
                 defaults?.set("Manual Coordinates", forKey: "cityName")
                 defaults?.synchronize()
-                updateStatusLabel()
                 citySearchBox.stringValue = ""
             } else {
-                showAlert("Invalid Coordinates", "Latitude must be between -90 and 90, Longitude between -180 and 180.")
+                showInlineError("Latitude must be between -90 and 90, Longitude between -180 and 180.")
             }
         } else {
-            showAlert("Invalid Input", "Please enter valid numeric coordinates.")
+            showInlineError("Please enter valid numeric coordinates.")
         }
     }
     
     // MARK: - CoreLocation
     @objc private func useCurrentLocation() {
+        hideError()
+        
         let authStatus: CLAuthorizationStatus
         if #available(macOS 11.0, *) {
             authStatus = locationManager.authorizationStatus
@@ -310,7 +291,7 @@ class OptionsWindowController: NSWindowController, NSComboBoxDataSource, NSCombo
         }
         
         if authStatus == .denied || authStatus == .restricted {
-            showAlert("Location Denied", "Could not get current location. Permission is denied or restricted. Please search a city or enter coordinates manually.")
+            showInlineError("Could not get current location. Search a city or enter coordinates manually.")
             return
         }
         
@@ -320,7 +301,7 @@ class OptionsWindowController: NSWindowController, NSComboBoxDataSource, NSCombo
         locationTimer?.invalidate()
         locationTimer = Timer.scheduledTimer(withTimeInterval: 10.0, repeats: false) { [weak self] _ in
             self?.locationManager.stopUpdatingLocation()
-            self?.handleLocationFailure(reason: "Could not get current location (Timeout). Please search a city or enter coordinates manually.")
+            self?.handleLocationFailure(reason: "Could not get current location (Timeout). Search a city or enter coordinates manually.")
         }
         
         locationManager.requestWhenInUseAuthorization()
@@ -333,26 +314,39 @@ class OptionsWindowController: NSWindowController, NSComboBoxDataSource, NSCombo
         currentLocationBtn.isEnabled = true
         
         if let loc = locations.last {
-            defaults?.set(loc.coordinate.latitude, forKey: "latitude")
-            defaults?.set(loc.coordinate.longitude, forKey: "longitude")
-            defaults?.set("currentLocation", forKey: "locationMode")
+            let lat = loc.coordinate.latitude
+            let lon = loc.coordinate.longitude
+            defaults?.set(lat, forKey: "latitude")
+            defaults?.set(lon, forKey: "longitude")
+            defaults?.set("savedCurrentLocation", forKey: "locationMode")
             defaults?.set("Current Location", forKey: "cityName")
             defaults?.set(Date().timeIntervalSince1970, forKey: "locationUpdatedAt")
             defaults?.synchronize()
-            updateStatusLabel()
+            
+            latField.stringValue = "\(lat)"
+            lonField.stringValue = "\(lon)"
             citySearchBox.stringValue = ""
         }
     }
     
     func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
         locationTimer?.invalidate()
-        handleLocationFailure(reason: "Could not get current location. Please search a city or enter coordinates manually.")
+        handleLocationFailure(reason: "Could not get current location. Search a city or enter coordinates manually.")
     }
     
     private func handleLocationFailure(reason: String) {
         currentLocationBtn.title = "Use Current Location"
         currentLocationBtn.isEnabled = true
-        showAlert("Location Error", reason)
+        showInlineError(reason)
+    }
+    
+    private func showInlineError(_ msg: String) {
+        inlineErrorLabel.stringValue = msg
+        inlineErrorLabel.isHidden = false
+    }
+    
+    private func hideError() {
+        inlineErrorLabel.isHidden = true
     }
     
     // MARK: - Offline City Database
@@ -390,6 +384,7 @@ class OptionsWindowController: NSWindowController, NSComboBoxDataSource, NSCombo
     }
     
     func comboBoxSelectionDidChange(_ notification: Notification) {
+        hideError()
         let selectedIndex = citySearchBox.indexOfSelectedItem
         if selectedIndex >= 0 && selectedIndex < filteredCities.count {
             let city = filteredCities[selectedIndex]
@@ -405,15 +400,17 @@ class OptionsWindowController: NSWindowController, NSComboBoxDataSource, NSCombo
                 rName = tz.split(separator: "/").last?.replacingOccurrences(of: "_", with: " ") ?? city.c
             }
             defaults?.set(rName, forKey: "regionName")
-            
             if let tz = city.tz { defaults?.set(tz, forKey: "timezone") }
             defaults?.synchronize()
-            updateStatusLabel()
+            
+            latField.stringValue = "\(city.lat)"
+            lonField.stringValue = "\(city.lon)"
         }
     }
     
     func controlTextDidChange(_ obj: Notification) {
         guard let comboBox = obj.object as? NSComboBox, comboBox == citySearchBox else { return }
+        hideError()
         let searchString = comboBox.stringValue.lowercased()
         
         if searchString.isEmpty {
@@ -428,14 +425,5 @@ class OptionsWindowController: NSWindowController, NSComboBoxDataSource, NSCombo
             filteredCities = Array(matches.sorted(by: { $0.p > $1.p }).prefix(20))
         }
         comboBox.reloadData()
-    }
-    
-    private func showAlert(_ title: String, _ msg: String) {
-        let alert = NSAlert()
-        alert.messageText = title
-        alert.informativeText = msg
-        alert.alertStyle = .warning
-        alert.addButton(withTitle: "OK")
-        alert.beginSheetModal(for: self.window!, completionHandler: nil)
     }
 }

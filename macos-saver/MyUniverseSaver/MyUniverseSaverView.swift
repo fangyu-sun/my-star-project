@@ -1,59 +1,139 @@
 import Foundation
 import ScreenSaver
 import WebKit
+import CoreLocation
 
-class MyUniverseSaverView: ScreenSaverView {
+class MyUniverseSaverView: ScreenSaverView, CLLocationManagerDelegate {
     
     private var webView: WKWebView?
+    private let locationManager = CLLocationManager()
+    private var runtimeLocationTimer: Timer?
+    
+    // Fallback default coordinates (Pyongyang)
+    private let defaultLat: Double = 39.0392
+    private let defaultLon: Double = 125.7625
     
     // MARK: - Initialization
     override init?(frame: NSRect, isPreview: Bool) {
         super.init(frame: frame, isPreview: isPreview)
-        setupWebView()
+        startRuntimeLocationFetch()
     }
     
     required init?(coder: NSCoder) {
         super.init(coder: coder)
-        setupWebView()
+        startRuntimeLocationFetch()
     }
     
-    private func setupWebView() {
+    // MARK: - Runtime Location Provider
+    private func startRuntimeLocationFetch() {
+        locationManager.delegate = self
+        
+        let authStatus: CLAuthorizationStatus
+        if #available(macOS 11.0, *) {
+            authStatus = locationManager.authorizationStatus
+        } else {
+            authStatus = CLLocationManager.authorizationStatus()
+        }
+        
+        // If not authorized or restricted, skip directly to fallback
+        if authStatus == .denied || authStatus == .restricted {
+            finalizeWebView(location: nil)
+            return
+        }
+        
+        // Setup 4-second hard timeout
+        runtimeLocationTimer = Timer.scheduledTimer(withTimeInterval: 4.0, repeats: false) { [weak self] _ in
+            self?.locationManager.stopUpdatingLocation()
+            self?.finalizeWebView(location: nil)
+        }
+        
+        locationManager.requestLocation()
+    }
+    
+    func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
+        if let timer = runtimeLocationTimer, timer.isValid {
+            timer.invalidate()
+            runtimeLocationTimer = nil
+            manager.stopUpdatingLocation()
+            finalizeWebView(location: locations.last)
+        }
+    }
+    
+    func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
+        if let timer = runtimeLocationTimer, timer.isValid {
+            timer.invalidate()
+            runtimeLocationTimer = nil
+            manager.stopUpdatingLocation()
+            finalizeWebView(location: nil)
+        }
+    }
+    
+    // MARK: - WebView Setup
+    private func finalizeWebView(location: CLLocation?) {
         let prefs = WKWebpagePreferences()
         prefs.allowsContentJavaScript = true
         
         let webConfiguration = WKWebViewConfiguration()
         webConfiguration.defaultWebpagePreferences = prefs
         
-        // Inject Configuration from ScreenSaverDefaults
         let defaults = ScreenSaverDefaults(forModuleWithName: "com.sunfangyu.MyUniverseSaver")
         
-        let lat = defaults?.double(forKey: "latitude") ?? -31.9523
-        let lon = defaults?.double(forKey: "longitude") ?? 115.8613
         let lang = defaults?.string(forKey: "language") ?? "zh"
         let brightness = defaults?.double(forKey: "brightness")
         let displayFrequency = defaults?.integer(forKey: "displayFrequency")
-        
-        let locationMode = defaults?.string(forKey: "locationMode") ?? "default"
-        let cityName = defaults?.string(forKey: "cityName") ?? "Perth"
-        let regionName = defaults?.string(forKey: "regionName") ?? "Western Australia"
-        let countryName = defaults?.string(forKey: "countryName") ?? "Australia"
-        let countryCode = defaults?.string(forKey: "countryCode") ?? "AU"
-        let timezone = defaults?.string(forKey: "timezone") ?? "Australia/Perth"
-        
         let safeBrightness = brightness == 0 ? 1.0 : brightness ?? 1.0
         let safeFrequency = displayFrequency == 0 ? 10 : displayFrequency ?? 10
+        
+        var finalLat = defaultLat
+        var finalLon = defaultLon
+        var finalLocationMode = "default"
+        var finalCityName = "Pyongyang"
+        var finalRegionName = "Pyongyang"
+        var finalCountryName = "North Korea"
+        var finalCountryCode = "KP"
+        var finalTimezone = "Asia/Pyongyang"
+        
+        if let validLocation = location {
+            // Priority 1: Runtime CoreLocation succeeded
+            finalLat = validLocation.coordinate.latitude
+            finalLon = validLocation.coordinate.longitude
+            finalLocationMode = "runtimeCurrentLocation"
+            finalCityName = "Current Location"
+            finalRegionName = ""
+            finalCountryName = ""
+            finalCountryCode = ""
+            finalTimezone = ""
+        } else {
+            // Priority 2: Fallback to ScreenSaverDefaults
+            if let savedMode = defaults?.string(forKey: "locationMode"),
+               let savedLat = defaults?.double(forKey: "latitude"),
+               let savedLon = defaults?.double(forKey: "longitude") {
+                
+                // Only accept if not the old 0.0 bug
+                if savedLat != 0.0 || savedLon != 0.0 {
+                    finalLat = savedLat
+                    finalLon = savedLon
+                    finalLocationMode = savedMode
+                    finalCityName = defaults?.string(forKey: "cityName") ?? ""
+                    finalRegionName = defaults?.string(forKey: "regionName") ?? ""
+                    finalCountryName = defaults?.string(forKey: "countryName") ?? ""
+                    finalCountryCode = defaults?.string(forKey: "countryCode") ?? ""
+                    finalTimezone = defaults?.string(forKey: "timezone") ?? ""
+                }
+            }
+        }
         
         let scriptSource = """
         window.MY_UNIVERSE_CONFIG = {
             runtime: "screensaver",
-            latitude: \(lat),
-            longitude: \(lon),
-            locationMode: "\(locationMode)",
-            cityName: "\(cityName)",
-            regionName: "\(regionName)",
-            countryName: "\(countryName)",
-            countryCode: "\(countryCode)",
-            timezone: "\(timezone)",
+            latitude: \(finalLat),
+            longitude: \(finalLon),
+            locationMode: "\(finalLocationMode)",
+            cityName: "\(finalCityName)",
+            regionName: "\(finalRegionName)",
+            countryName: "\(finalCountryName)",
+            countryCode: "\(finalCountryCode)",
+            timezone: "\(finalTimezone)",
             language: "\(lang)",
             brightness: \(safeBrightness),
             displayFrequency: \(safeFrequency),
@@ -69,13 +149,17 @@ class MyUniverseSaverView: ScreenSaverView {
         // Suppress CORS issues for file://
         webConfiguration.preferences.setValue(true, forKey: "allowFileAccessFromFileURLs")
         
-        let wv = WKWebView(frame: self.bounds, configuration: webConfiguration)
-        wv.autoresizingMask = [.width, .height]
-        wv.setValue(false, forKey: "drawsBackground") // Transparent background
-        self.addSubview(wv)
-        self.webView = wv
-        
-        loadWebResource()
+        // Must dispatch to main thread for UI instantiation
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            let wv = WKWebView(frame: self.bounds, configuration: webConfiguration)
+            wv.autoresizingMask = [.width, .height]
+            wv.setValue(false, forKey: "drawsBackground") // Transparent background
+            self.addSubview(wv)
+            self.webView = wv
+            
+            self.loadWebResource()
+        }
     }
     
     private func loadWebResource() {
