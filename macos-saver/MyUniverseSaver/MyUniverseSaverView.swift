@@ -35,8 +35,10 @@ class MyUniverseSaverView: ScreenSaverView {
         
         let locationMode = defaults?.string(forKey: "locationMode") ?? "default"
         let cityName = defaults?.string(forKey: "cityName") ?? "Perth"
+        let regionName = defaults?.string(forKey: "regionName") ?? "Western Australia"
         let countryName = defaults?.string(forKey: "countryName") ?? "Australia"
-        let timezone = defaults?.string(forKey: "timezone") ?? ""
+        let countryCode = defaults?.string(forKey: "countryCode") ?? "AU"
+        let timezone = defaults?.string(forKey: "timezone") ?? "Australia/Perth"
         
         let safeBrightness = brightness == 0 ? 1.0 : brightness ?? 1.0
         let safeFrequency = displayFrequency == 0 ? 10 : displayFrequency ?? 10
@@ -48,7 +50,9 @@ class MyUniverseSaverView: ScreenSaverView {
             longitude: \(lon),
             locationMode: "\(locationMode)",
             cityName: "\(cityName)",
+            regionName: "\(regionName)",
             countryName: "\(countryName)",
+            countryCode: "\(countryCode)",
             timezone: "\(timezone)",
             language: "\(lang)",
             brightness: \(safeBrightness),

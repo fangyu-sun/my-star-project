@@ -210,12 +210,13 @@ startBroadcasterSession = function(isScreensaverMode = false, config = {}) {
     currentLon = config.longitude || 0;
     
     if (config.locationMode === 'city' || config.locationMode === 'default') {
-      cityString = config.countryName ? `${config.cityName}, ${config.countryName}` : config.cityName;
+      let parts = [config.cityName, config.regionName, config.countryName].filter(Boolean);
+      cityString = parts.join(", ");
     } else if (config.locationMode === 'currentLocation') {
       const isZh = config.language === 'zh' || config.language === 'zh-TW';
       cityString = isZh ? "当前位置" : "Current Location";
     } else {
-      cityString = `Lat: ${currentLat.toFixed(2)}, Lon: ${currentLon.toFixed(2)}`;
+      cityString = `Lat: ${currentLat.toFixed(4)}, Lon: ${currentLon.toFixed(4)}`;
     }
     
     isCityDynamic = false;

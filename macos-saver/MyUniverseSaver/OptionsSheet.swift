@@ -21,146 +21,192 @@ class OptionsWindowController: NSWindowController, NSComboBoxDataSource, NSCombo
     
     // CoreLocation
     let locationManager = CLLocationManager()
+    var locationTimer: Timer?
     
     // City Database
     var allCities: [City] = []
     var filteredCities: [City] = []
     
     // UI Elements
-    let statusLabel = NSTextField(labelWithString: "Status: Initializing...")
-    let currentLocationBtn = NSButton(title: "Use Current Location", target: nil, action: nil)
+    let statusLabel = NSTextField(labelWithString: "Current Location:\nNot set.")
     
     let citySearchBox = NSComboBox()
+    let currentLocationBtn = NSButton(title: "Use Current Location", target: nil, action: nil)
     
     let latField = NSTextField()
     let lonField = NSTextField()
-    let saveManualBtn = NSButton(title: "Save Manual", target: nil, action: nil)
+    let saveManualBtn = NSButton(title: "Save Coordinates", target: nil, action: nil)
     
     let langPopUp = NSPopUpButton(frame: .zero, pullsDown: false)
     let freqSlider = NSSlider()
     let freqLabel = NSTextField(labelWithString: "10s")
     
     init() {
-        let windowRect = NSRect(x: 0, y: 0, width: 450, height: 420)
+        let windowRect = NSRect(x: 0, y: 0, width: 480, height: 380)
         let window = NSPanel(contentRect: windowRect, styleMask: [.titled], backing: .buffered, defer: false)
-        window.title = "My Universe Screensaver Options"
+        window.title = "My Universe Settings"
         super.init(window: window)
         
         locationManager.delegate = self
         
+        migrateLegacyDefaults()
         setupUI()
         loadCitiesDatabase()
         updateStatusLabel()
-        loadDefaults()
+        loadDisplayDefaults()
     }
     
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
     
+    // MARK: - Legacy Migration
+    private func migrateLegacyDefaults() {
+        let lat = defaults?.double(forKey: "latitude") ?? 0.0
+        let lon = defaults?.double(forKey: "longitude") ?? 0.0
+        let mode = defaults?.string(forKey: "locationMode")
+        
+        // If it's an uninitialized state or the old 0.0 bug, migrate to strict Perth defaults
+        if (lat == 0.0 && lon == 0.0) || mode == nil {
+            defaults?.set(-31.9523, forKey: "latitude")
+            defaults?.set(115.8613, forKey: "longitude")
+            defaults?.set("default", forKey: "locationMode")
+            defaults?.set("Perth", forKey: "cityName")
+            defaults?.set("Western Australia", forKey: "regionName")
+            defaults?.set("Australia", forKey: "countryName")
+            defaults?.set("AU", forKey: "countryCode")
+            defaults?.set("Australia/Perth", forKey: "timezone")
+            defaults?.synchronize()
+        }
+    }
+    
+    // MARK: - UI Setup
     private func setupUI() {
         guard let contentView = window?.contentView else { return }
         
-        let stackView = NSStackView()
-        stackView.orientation = .vertical
-        stackView.alignment = .leading
-        stackView.spacing = 15
-        stackView.translatesAutoresizingMaskIntoConstraints = false
-        contentView.addSubview(stackView)
+        let mainStack = NSStackView()
+        mainStack.orientation = .vertical
+        mainStack.alignment = .leading
+        mainStack.spacing = 20
+        mainStack.translatesAutoresizingMaskIntoConstraints = false
+        contentView.addSubview(mainStack)
         
         NSLayoutConstraint.activate([
-            stackView.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 20),
-            stackView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
-            stackView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20)
+            mainStack.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 20),
+            mainStack.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
+            mainStack.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20)
         ])
         
-        // --- Status ---
-        statusLabel.font = NSFont.boldSystemFont(ofSize: 12)
-        stackView.addArrangedSubview(statusLabel)
+        // --- Status Area ---
+        statusLabel.isEditable = false
+        statusLabel.isSelectable = true
+        statusLabel.isBordered = false
+        statusLabel.backgroundColor = .clear
+        statusLabel.font = NSFont.systemFont(ofSize: 13, weight: .medium)
+        statusLabel.textColor = .secondaryLabelColor
+        mainStack.addArrangedSubview(statusLabel)
         
-        // --- Location Strategy 1: Current Location ---
-        let currentLocBox = NSBox()
-        currentLocBox.title = "Strategy 1: CoreLocation"
-        currentLocBox.widthAnchor.constraint(equalToConstant: 410).isActive = true
-        let currentLocStack = NSStackView()
-        currentLocStack.orientation = .horizontal
-        currentLocStack.edgeInsets = NSEdgeInsets(top: 10, left: 10, bottom: 10, right: 10)
-        currentLocationBtn.target = self
-        currentLocationBtn.action = #selector(useCurrentLocation)
-        currentLocStack.addArrangedSubview(currentLocationBtn)
-        currentLocBox.contentView = currentLocStack
-        stackView.addArrangedSubview(currentLocBox)
+        let separator1 = NSBox()
+        separator1.boxType = .separator
+        separator1.widthAnchor.constraint(equalToConstant: 440).isActive = true
+        mainStack.addArrangedSubview(separator1)
         
-        // --- Location Strategy 2: City Search ---
-        let citySearchBoxContainer = NSBox()
-        citySearchBoxContainer.title = "Strategy 2: Offline City Search"
-        citySearchBoxContainer.widthAnchor.constraint(equalToConstant: 410).isActive = true
-        let cityStack = NSStackView()
-        cityStack.orientation = .horizontal
-        cityStack.edgeInsets = NSEdgeInsets(top: 10, left: 10, bottom: 10, right: 10)
+        // --- Location Setup Area ---
+        let locLabel = NSTextField(labelWithString: "Location Configuration")
+        locLabel.font = NSFont.boldSystemFont(ofSize: 14)
+        mainStack.addArrangedSubview(locLabel)
+        
+        // City & Current Loc Row
+        let cityRow = NSStackView()
+        cityRow.orientation = .horizontal
+        cityRow.spacing = 10
+        
+        let cityLabel = NSTextField(labelWithString: "City:")
+        cityLabel.widthAnchor.constraint(equalToConstant: 60).isActive = true
+        cityLabel.alignment = .right
+        
         citySearchBox.usesDataSource = true
         citySearchBox.dataSource = self
         citySearchBox.delegate = self
         citySearchBox.completes = true
-        citySearchBox.widthAnchor.constraint(equalToConstant: 250).isActive = true
-        cityStack.addArrangedSubview(NSTextField(labelWithString: "City:"))
-        cityStack.addArrangedSubview(citySearchBox)
-        let saveCityBtn = NSButton(title: "Save City", target: self, action: #selector(saveCity))
-        cityStack.addArrangedSubview(saveCityBtn)
-        citySearchBoxContainer.contentView = cityStack
-        stackView.addArrangedSubview(citySearchBoxContainer)
+        citySearchBox.widthAnchor.constraint(equalToConstant: 200).isActive = true
+        citySearchBox.placeholderString = "Search e.g. Perth"
         
-        // --- Location Strategy 3: Manual ---
-        let manualBox = NSBox()
-        manualBox.title = "Strategy 3: Manual Coordinates"
-        manualBox.widthAnchor.constraint(equalToConstant: 410).isActive = true
-        let manualStack = NSStackView()
-        manualStack.orientation = .horizontal
-        manualStack.edgeInsets = NSEdgeInsets(top: 10, left: 10, bottom: 10, right: 10)
-        latField.widthAnchor.constraint(equalToConstant: 80).isActive = true
-        lonField.widthAnchor.constraint(equalToConstant: 80).isActive = true
+        currentLocationBtn.target = self
+        currentLocationBtn.action = #selector(useCurrentLocation)
+        
+        cityRow.addArrangedSubview(cityLabel)
+        cityRow.addArrangedSubview(citySearchBox)
+        cityRow.addArrangedSubview(currentLocationBtn)
+        mainStack.addArrangedSubview(cityRow)
+        
+        // Manual Coords Row
+        let coordsRow = NSStackView()
+        coordsRow.orientation = .horizontal
+        coordsRow.spacing = 10
+        
+        let latLabel = NSTextField(labelWithString: "Latitude:")
+        latLabel.widthAnchor.constraint(equalToConstant: 60).isActive = true
+        latLabel.alignment = .right
+        latField.widthAnchor.constraint(equalToConstant: 75).isActive = true
+        
+        let lonLabel = NSTextField(labelWithString: "Longitude:")
+        lonField.widthAnchor.constraint(equalToConstant: 75).isActive = true
+        
         saveManualBtn.target = self
         saveManualBtn.action = #selector(saveManualCoords)
-        manualStack.addArrangedSubview(NSTextField(labelWithString: "Lat:"))
-        manualStack.addArrangedSubview(latField)
-        manualStack.addArrangedSubview(NSTextField(labelWithString: "Lon:"))
-        manualStack.addArrangedSubview(lonField)
-        manualStack.addArrangedSubview(saveManualBtn)
-        manualBox.contentView = manualStack
-        stackView.addArrangedSubview(manualBox)
+        
+        coordsRow.addArrangedSubview(latLabel)
+        coordsRow.addArrangedSubview(latField)
+        coordsRow.addArrangedSubview(lonLabel)
+        coordsRow.addArrangedSubview(lonField)
+        coordsRow.addArrangedSubview(saveManualBtn)
+        mainStack.addArrangedSubview(coordsRow)
+        
+        let separator2 = NSBox()
+        separator2.boxType = .separator
+        separator2.widthAnchor.constraint(equalToConstant: 440).isActive = true
+        mainStack.addArrangedSubview(separator2)
         
         // --- Display Settings ---
-        let displayBox = NSBox()
-        displayBox.title = "Display Settings"
-        displayBox.widthAnchor.constraint(equalToConstant: 410).isActive = true
-        let displayStack = NSStackView()
-        displayStack.orientation = .horizontal
-        displayStack.edgeInsets = NSEdgeInsets(top: 10, left: 10, bottom: 10, right: 10)
+        let displayLabel = NSTextField(labelWithString: "Display Settings")
+        displayLabel.font = NSFont.boldSystemFont(ofSize: 14)
+        mainStack.addArrangedSubview(displayLabel)
+        
+        let displayRow = NSStackView()
+        displayRow.orientation = .horizontal
+        displayRow.spacing = 10
         
         langPopUp.addItems(withTitles: ["简体中文", "繁體中文", "English", "日本語"])
+        
         freqSlider.minValue = 2
         freqSlider.maxValue = 30
         freqSlider.target = self
         freqSlider.action = #selector(sliderChanged(_:))
-        freqSlider.widthAnchor.constraint(equalToConstant: 80).isActive = true
-        freqLabel.widthAnchor.constraint(equalToConstant: 30).isActive = true
+        freqSlider.widthAnchor.constraint(equalToConstant: 100).isActive = true
         
-        displayStack.addArrangedSubview(NSTextField(labelWithString: "Lang:"))
-        displayStack.addArrangedSubview(langPopUp)
-        displayStack.addArrangedSubview(NSTextField(labelWithString: "Freq:"))
-        displayStack.addArrangedSubview(freqSlider)
-        displayStack.addArrangedSubview(freqLabel)
-        displayBox.contentView = displayStack
-        stackView.addArrangedSubview(displayBox)
+        displayRow.addArrangedSubview(NSTextField(labelWithString: "Language:"))
+        displayRow.addArrangedSubview(langPopUp)
+        displayRow.addArrangedSubview(NSTextField(labelWithString: "   Refresh:"))
+        displayRow.addArrangedSubview(freqSlider)
+        displayRow.addArrangedSubview(freqLabel)
+        mainStack.addArrangedSubview(displayRow)
         
         // --- Bottom Buttons ---
         let btnContainer = NSStackView()
         btnContainer.orientation = .horizontal
-        btnContainer.spacing = 20
         let closeBtn = NSButton(title: "Close & Apply Settings", target: self, action: #selector(closePressed))
         closeBtn.keyEquivalent = "\r"
         btnContainer.addArrangedSubview(closeBtn)
-        stackView.addArrangedSubview(btnContainer)
+        
+        let bottomStack = NSStackView()
+        bottomStack.orientation = .horizontal
+        bottomStack.alignment = .centerY
+        bottomStack.widthAnchor.constraint(equalToConstant: 440).isActive = true
+        bottomStack.addView(NSView(), in: .leading) // spacer
+        bottomStack.addView(btnContainer, in: .trailing)
+        
+        mainStack.addArrangedSubview(bottomStack)
     }
     
     // MARK: - State Management
@@ -169,22 +215,30 @@ class OptionsWindowController: NSWindowController, NSComboBoxDataSource, NSCombo
         let lat = defaults?.double(forKey: "latitude") ?? -31.9523
         let lon = defaults?.double(forKey: "longitude") ?? 115.8613
         let cName = defaults?.string(forKey: "cityName") ?? "Perth"
+        let rName = defaults?.string(forKey: "regionName") ?? "Western Australia"
+        let cnName = defaults?.string(forKey: "countryName") ?? "Australia"
         
-        var statusStr = "Mode: \(mode.uppercased()) | "
-        if mode == "city" || mode == "default" || mode == "currentLocation" {
-            let cn = defaults?.string(forKey: "countryName") ?? "Australia"
-            statusStr += "\(cName), \(cn) (Lat: \(String(format: "%.2f", lat)), Lon: \(String(format: "%.2f", lon)))"
-        } else {
-            statusStr += "Lat: \(String(format: "%.2f", lat)), Lon: \(String(format: "%.2f", lon))"
+        var header = "Current Location:"
+        if mode == "default" {
+            header = "Current Location:\nNot set. Using default:"
         }
         
-        statusLabel.stringValue = "Current Saved: " + statusStr
+        var locDisplay = ""
+        if mode == "city" || mode == "default" {
+            locDisplay = "\(cName), \(rName), \(cnName)\nLatitude: \(lat)\nLongitude: \(lon)\nSource: \(mode.capitalized)"
+        } else if mode == "currentLocation" {
+            locDisplay = "Current Location (Device)\nLatitude: \(lat)\nLongitude: \(lon)\nSource: CoreLocation"
+        } else {
+            locDisplay = "Manual Coordinates\nLatitude: \(lat)\nLongitude: \(lon)\nSource: Manual"
+        }
+        
+        statusLabel.stringValue = "\(header)\n\(locDisplay)"
         
         latField.stringValue = "\(lat)"
         lonField.stringValue = "\(lon)"
     }
     
-    private func loadDefaults() {
+    private func loadDisplayDefaults() {
         let lang = defaults?.string(forKey: "language") ?? "zh"
         switch lang {
         case "zh": langPopUp.selectItem(at: 0)
@@ -204,7 +258,7 @@ class OptionsWindowController: NSWindowController, NSComboBoxDataSource, NSCombo
         freqLabel.stringValue = "\(sender.integerValue)s"
     }
     
-    // MARK: - Save Actions
+    // MARK: - Actions
     @objc private func closePressed() {
         // Save display settings on close
         var langCode = "zh"
@@ -227,59 +281,78 @@ class OptionsWindowController: NSWindowController, NSComboBoxDataSource, NSCombo
     @objc private func saveManualCoords() {
         if let lat = Double(latField.stringValue), let lon = Double(lonField.stringValue) {
             if lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180 {
+                if lat == 0.0 && lon == 0.0 {
+                    showAlert("Warning", "0.0, 0.0 is generally an invalid ocean coordinate. Please enter valid coordinates.")
+                    return
+                }
                 defaults?.set(lat, forKey: "latitude")
                 defaults?.set(lon, forKey: "longitude")
                 defaults?.set("manual", forKey: "locationMode")
                 defaults?.set("Manual Coordinates", forKey: "cityName")
                 defaults?.synchronize()
                 updateStatusLabel()
+                citySearchBox.stringValue = ""
             } else {
                 showAlert("Invalid Coordinates", "Latitude must be between -90 and 90, Longitude between -180 and 180.")
             }
-        }
-    }
-    
-    @objc private func saveCity() {
-        let selectedIndex = citySearchBox.indexOfSelectedItem
-        if selectedIndex >= 0 && selectedIndex < filteredCities.count {
-            let city = filteredCities[selectedIndex]
-            defaults?.set(city.lat, forKey: "latitude")
-            defaults?.set(city.lon, forKey: "longitude")
-            defaults?.set("city", forKey: "locationMode")
-            defaults?.set(city.c, forKey: "cityName")
-            defaults?.set(city.cn, forKey: "countryName")
-            defaults?.set(city.cc, forKey: "countryCode")
-            if let tz = city.tz { defaults?.set(tz, forKey: "timezone") }
-            defaults?.synchronize()
-            updateStatusLabel()
+        } else {
+            showAlert("Invalid Input", "Please enter valid numeric coordinates.")
         }
     }
     
     // MARK: - CoreLocation
     @objc private func useCurrentLocation() {
+        let authStatus: CLAuthorizationStatus
+        if #available(macOS 11.0, *) {
+            authStatus = locationManager.authorizationStatus
+        } else {
+            authStatus = CLLocationManager.authorizationStatus()
+        }
+        
+        if authStatus == .denied || authStatus == .restricted {
+            showAlert("Location Denied", "Could not get current location. Permission is denied or restricted. Please search a city or enter coordinates manually.")
+            return
+        }
+        
         currentLocationBtn.title = "Locating..."
         currentLocationBtn.isEnabled = false
+        
+        locationTimer?.invalidate()
+        locationTimer = Timer.scheduledTimer(withTimeInterval: 10.0, repeats: false) { [weak self] _ in
+            self?.locationManager.stopUpdatingLocation()
+            self?.handleLocationFailure(reason: "Could not get current location (Timeout). Please search a city or enter coordinates manually.")
+        }
+        
         locationManager.requestWhenInUseAuthorization()
         locationManager.requestLocation()
     }
     
     func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
+        locationTimer?.invalidate()
         currentLocationBtn.title = "Use Current Location"
         currentLocationBtn.isEnabled = true
+        
         if let loc = locations.last {
             defaults?.set(loc.coordinate.latitude, forKey: "latitude")
             defaults?.set(loc.coordinate.longitude, forKey: "longitude")
             defaults?.set("currentLocation", forKey: "locationMode")
             defaults?.set("Current Location", forKey: "cityName")
+            defaults?.set(Date().timeIntervalSince1970, forKey: "locationUpdatedAt")
             defaults?.synchronize()
             updateStatusLabel()
+            citySearchBox.stringValue = ""
         }
     }
     
     func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
+        locationTimer?.invalidate()
+        handleLocationFailure(reason: "Could not get current location. Please search a city or enter coordinates manually.")
+    }
+    
+    private func handleLocationFailure(reason: String) {
         currentLocationBtn.title = "Use Current Location"
         currentLocationBtn.isEnabled = true
-        showAlert("Location Error", error.localizedDescription)
+        showAlert("Location Error", reason)
     }
     
     // MARK: - Offline City Database
@@ -305,9 +378,38 @@ class OptionsWindowController: NSWindowController, NSComboBoxDataSource, NSCombo
     func comboBox(_ comboBox: NSComboBox, objectValueForItemAt index: Int) -> Any? {
         if index < filteredCities.count {
             let city = filteredCities[index]
-            return "\(city.c), \(city.cn)"
+            var display = "\(city.c), "
+            if let tz = city.tz, tz.contains("/") {
+                let region = tz.split(separator: "/").last?.replacingOccurrences(of: "_", with: " ") ?? ""
+                display += "\(region), "
+            }
+            display += "\(city.cn)"
+            return display
         }
         return nil
+    }
+    
+    func comboBoxSelectionDidChange(_ notification: Notification) {
+        let selectedIndex = citySearchBox.indexOfSelectedItem
+        if selectedIndex >= 0 && selectedIndex < filteredCities.count {
+            let city = filteredCities[selectedIndex]
+            defaults?.set(city.lat, forKey: "latitude")
+            defaults?.set(city.lon, forKey: "longitude")
+            defaults?.set("city", forKey: "locationMode")
+            defaults?.set(city.c, forKey: "cityName")
+            defaults?.set(city.cn, forKey: "countryName")
+            defaults?.set(city.cc, forKey: "countryCode")
+            
+            var rName = city.c
+            if let tz = city.tz, tz.contains("/") {
+                rName = tz.split(separator: "/").last?.replacingOccurrences(of: "_", with: " ") ?? city.c
+            }
+            defaults?.set(rName, forKey: "regionName")
+            
+            if let tz = city.tz { defaults?.set(tz, forKey: "timezone") }
+            defaults?.synchronize()
+            updateStatusLabel()
+        }
     }
     
     func controlTextDidChange(_ obj: Notification) {
