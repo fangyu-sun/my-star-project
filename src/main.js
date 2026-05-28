@@ -201,27 +201,32 @@ startBtn.addEventListener('click', () => {
   }, 1500);
 });
 
-startBroadcasterSession = function(isScreensaver = false) {
+startBroadcasterSession = function(isScreensaverMode = false, config = {}) {
   const t = UI_TRANSLATIONS[currentLang];
-  // 1. Immediately read cached or default coordinates
-    const cachedLatStr = localStorage.getItem('zenith_last_lat');
-  const cachedLonStr = localStorage.getItem('zenith_last_lon');
-  
-  let currentLat, currentLon;
-  let cityString = "";
-  let isCityDynamic = true;
-  
-  if (cachedLatStr && cachedLonStr) {
-    currentLat = parseFloat(cachedLatStr);
-    currentLon = parseFloat(cachedLonStr);
-    cityString = localStorage.getItem('zenith_last_city') || t.cachedCity;
-    isCityDynamic = !localStorage.getItem('zenith_last_city');
+  let currentLat, currentLon, cityString, isCityDynamic;
+
+  if (isScreensaverMode) {
+    currentLat = config.latitude || 0;
+    currentLon = config.longitude || 0;
+    cityString = config.cityName || "";
+    isCityDynamic = false;
   } else {
-    // Default to Beijing
-    currentLat = 39.9042;
-    currentLon = 116.4074;
-    cityString = t.fallbackCity;
-    isCityDynamic = true;
+    // 1. Immediately read cached or default coordinates
+    const cachedLatStr = localStorage.getItem('zenith_last_lat');
+    const cachedLonStr = localStorage.getItem('zenith_last_lon');
+    
+    if (cachedLatStr && cachedLonStr) {
+      currentLat = parseFloat(cachedLatStr);
+      currentLon = parseFloat(cachedLonStr);
+      cityString = localStorage.getItem('zenith_last_city') || t.cachedCity;
+      isCityDynamic = !localStorage.getItem('zenith_last_city');
+    } else {
+      // Default to Beijing
+      currentLat = 39.9042;
+      currentLon = 116.4074;
+      cityString = t.fallbackCity;
+      isCityDynamic = true;
+    }
   }
 
   // State variables for the dome carousel
@@ -339,7 +344,8 @@ startBroadcasterSession = function(isScreensaver = false) {
 
   function startCarousel() {
     if (carouselIntervalId) clearInterval(carouselIntervalId);
-    carouselIntervalId = setInterval(carouselTick, 10000); // 10-second breathing cycle
+    let freq = isScreensaverMode && config.displayFrequency ? config.displayFrequency * 1000 : 10000;
+    carouselIntervalId = setInterval(carouselTick, freq); // breathing cycle
   }
 
   broadcasterScreen.addEventListener('click', (e) => {
@@ -388,7 +394,7 @@ startBroadcasterSession = function(isScreensaver = false) {
   }, 2500);
 
   // 5. Query for fresh real-time coordinates in the background silently
-  if (!isScreensaver && navigator.geolocation) {
+  if (!isScreensaverMode && navigator.geolocation) {
     navigator.geolocation.getCurrentPosition(
       (position) => {
         const freshLat = position.coords.latitude;
@@ -428,24 +434,28 @@ startBroadcasterSession = function(isScreensaver = false) {
   };
 
   // --------------------- Screensaver Mode Init ---------------------
-  const urlParams = new URLSearchParams(window.location.search);
-  if (urlParams.get('mode') === 'screensaver') {
-    const ssLat = urlParams.get('lat');
-    const ssLon = urlParams.get('lon');
-    const ssLang = urlParams.get('lang');
-    
-    if (ssLat && ssLon) {
-      localStorage.setItem('zenith_last_lat', ssLat);
-      localStorage.setItem('zenith_last_lon', ssLon);
-      localStorage.removeItem('zenith_last_city');
+  function getRuntimeConfig() {
+    if (typeof window !== 'undefined' && window.MY_UNIVERSE_CONFIG) {
+      return window.MY_UNIVERSE_CONFIG;
     }
+    return { runtime: 'web' };
+  }
+
+  const runtimeConfig = getRuntimeConfig();
+  const isScreensaverModeActive = runtimeConfig.runtime === 'screensaver';
+
+  if (isScreensaverModeActive) {
+    document.body.classList.add('mode-screensaver');
     
-    if (ssLang) {
-      currentLang = ssLang;
-      localStorage.setItem('zenith_lang', ssLang);
+    if (runtimeConfig.language) {
+      currentLang = runtimeConfig.language;
       applyLanguage();
     }
     
+    if (runtimeConfig.brightness) {
+      document.body.style.filter = `brightness(${runtimeConfig.brightness})`;
+    }
+
     document.getElementById('intro').classList.remove('active');
-    startBroadcasterSession(true);
+    startBroadcasterSession(true, runtimeConfig);
   }

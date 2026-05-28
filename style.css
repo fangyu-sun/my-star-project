@@ -173,6 +173,31 @@ body {
   transition: opacity 2.5s ease-in-out;
 }
 
+.bg-layer {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background-size: cover;
+  background-position: center;
+  transition: opacity 1.5s ease-in-out;
+  opacity: 0;
+}
+
+/* -------------------------------------------
+   Screensaver Mode Overrides
+------------------------------------------- */
+body.mode-screensaver .lang-selector-top-right,
+body.mode-screensaver .lang-selector-inline,
+body.mode-screensaver #intro,
+body.mode-screensaver #start-btn {
+  display: none !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+body.mode-screensaver {
+  cursor: none !important; /* Hide mouse cursor in screensaver mode */
+}
+
 .lang-selector-top-right {
   position: absolute;
   top: 2.5rem;
