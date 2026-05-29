@@ -23,6 +23,6 @@
     <key>NSLocationWhenInUseUsageDescription</key>
     <string>My Universe uses your location to calculate real-time celestial positions directly above you.</string>
     <key>MyUniverseBuildTimestamp</key>
-    <string>1780072708</string>
+    <string>1780072880</string>
 </dict>
 </plist>

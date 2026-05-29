@@ -188,11 +188,15 @@ public class MyUniverseView: ScreenSaverView, CLLocationManagerDelegate {
     public func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
         if let loc = locations.last {
             let defaults = ScreenSaverDefaults(forModuleWithName: defaultsModuleName)
-            defaults?.set(loc.coordinate.latitude, forKey: "currentPosition_lat")
-            defaults?.set(loc.coordinate.longitude, forKey: "currentPosition_lon")
-            defaults?.set("Current Position", forKey: "currentPosition_cityName")
-            defaults?.set(Date().timeIntervalSince1970, forKey: "currentPosition_updatedAt")
-            defaults?.synchronize()
+            let tz = TimeZone.current.identifier
+            if !tz.isEmpty {
+                defaults?.set(tz, forKey: "currentPosition_timezone")
+                defaults?.set(loc.coordinate.latitude, forKey: "currentPosition_lat")
+                defaults?.set(loc.coordinate.longitude, forKey: "currentPosition_lon")
+                defaults?.set("Current Position", forKey: "currentPosition_cityName")
+                defaults?.set(Date().timeIntervalSince1970, forKey: "currentPosition_updatedAt")
+                defaults?.synchronize()
+            }
             // We do NOT update the active WebView here to prevent flashes. It will take effect next session.
         }
         manager.stopUpdatingLocation()
