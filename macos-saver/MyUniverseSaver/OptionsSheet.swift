@@ -371,9 +371,33 @@ class OptionsWindowController: NSWindowController, NSComboBoxDataSource, NSCombo
         }
         
         if formActiveMode == "currentPosition" {
-            // We allow saving currentPosition even if it's nil in form state.
-            // The PRD says "Find Current Location 仅更新 Form State...如果未点击 Save：定位结果必须丢弃"
-            // The saver view will handle background fallback if it's nil.
+            let authStatus: CLAuthorizationStatus
+            if #available(macOS 11.0, *) {
+                authStatus = locationManager.authorizationStatus
+            } else {
+                authStatus = CLLocationManager.authorizationStatus()
+            }
+            
+            let isAuthorized = (authStatus == .authorized || authStatus == .authorizedAlways)
+            
+            if !isAuthorized && formCurrentLat == nil {
+                let alert = NSAlert()
+                alert.messageText = "Missing Location Permission"
+                alert.informativeText = "Current Position currently has no location permission. Use Find Current Location?"
+                alert.alertStyle = .warning
+                alert.addButton(withTitle: "Find Current Location")
+                alert.addButton(withTitle: "Continue Anyway")
+                alert.addButton(withTitle: "Cancel")
+                
+                let response = alert.runModal()
+                if response == .alertFirstButtonReturn {
+                    findCurrentLocation()
+                    return
+                } else if response == .alertThirdButtonReturn {
+                    return
+                }
+                // Second button (Continue Anyway) proceeds to save.
+            }
         }
         
         // Write to UserDefaults

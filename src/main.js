@@ -5,6 +5,10 @@ import tzlookup from 'tz-lookup'
 let activeSatellites = [];
 
 async function loadActiveSatellites() {
+  if (window.MY_UNIVERSE_CONFIG && window.MY_UNIVERSE_CONFIG.runtime === 'screensaver') {
+    console.log("Screensaver mode: Disabling remote network requests (TLE fetch).");
+    return;
+  }
   try {
     const response = await fetch('https://tle.ivanstanojevic.me/api/tle/?page-size=50&sort=popularity');
     const data = await response.json();
@@ -242,13 +246,14 @@ startBroadcasterSession = function(isScreensaverMode = false, config = {}) {
       debugDiv.style.pointerEvents = 'none';
       debugDiv.innerHTML = `
         <strong>MyUniverseSaver DEBUG</strong><br>
-        runtime: screensaver<br>
+        activeMode: ${config.locationMode}<br>
+        dataSource: injected config (zero-blocking)<br>
         latitude: ${currentLat}<br>
         longitude: ${currentLon}<br>
-        locationMode: ${config.locationMode}<br>
-        cityName: ${config.cityName}<br>
-        data source: injected config<br>
-        buildTimestamp: ${config.buildTimestamp || 'unknown'}
+        timezone: ${resolvedTimezone}<br>
+        displayName: ${cityString}<br>
+        buildTimestamp: ${config.buildTimestamp || 'unknown'}<br>
+        updatedAt: ${config.updatedAt || '0'}
       `;
       document.body.appendChild(debugDiv);
     }

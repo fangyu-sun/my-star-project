@@ -44,6 +44,7 @@ public class MyUniverseView: ScreenSaverView, CLLocationManagerDelegate {
         var finalCountryName = fallbackCountryName
         var finalCountryCode = fallbackCountryCode
         var finalTimezone = fallbackTimezone
+        var finalUpdatedAt: Double = 0
         
         // Zero-Blocking Rendering: Read directly from appropriate persistence bucket
         switch activeMode {
@@ -56,7 +57,8 @@ public class MyUniverseView: ScreenSaverView, CLLocationManagerDelegate {
                 finalRegionName = ""
                 finalCountryName = ""
                 finalCountryCode = ""
-                finalTimezone = "" // Web engine will resolve this via tz-lookup
+                finalTimezone = defaults?.string(forKey: "currentPosition_timezone") ?? "" // Web engine will resolve this via tz-lookup
+                finalUpdatedAt = defaults?.double(forKey: "currentPosition_updatedAt") ?? 0
             }
             // Trigger silent background fetch for NEXT session
             triggerSilentBackgroundLocationFetch()
@@ -71,6 +73,7 @@ public class MyUniverseView: ScreenSaverView, CLLocationManagerDelegate {
                 finalCountryName = defaults?.string(forKey: "city_countryName") ?? ""
                 finalCountryCode = defaults?.string(forKey: "city_countryCode") ?? ""
                 finalTimezone = defaults?.string(forKey: "city_timezone") ?? fallbackTimezone
+                finalUpdatedAt = defaults?.double(forKey: "city_updatedAt") ?? 0
             }
             
         case "manual":
@@ -82,7 +85,8 @@ public class MyUniverseView: ScreenSaverView, CLLocationManagerDelegate {
                 finalRegionName = ""
                 finalCountryName = ""
                 finalCountryCode = ""
-                finalTimezone = "" // Web engine will resolve this via tz-lookup
+                finalTimezone = defaults?.string(forKey: "manual_timezone") ?? "" // Web engine will resolve this via tz-lookup
+                finalUpdatedAt = defaults?.double(forKey: "manual_updatedAt") ?? 0
             }
             
         default:
@@ -101,7 +105,7 @@ public class MyUniverseView: ScreenSaverView, CLLocationManagerDelegate {
         initializeWebView(
             lat: finalLat, lon: finalLon, mode: activeMode,
             city: finalCityName, region: finalRegionName, country: finalCountryName,
-            countryCode: finalCountryCode, timezone: finalTimezone,
+            countryCode: finalCountryCode, timezone: finalTimezone, updatedAt: finalUpdatedAt,
             lang: lang, freq: displayFrequency == 0 ? 10 : displayFrequency,
             bright: brightness == 0.0 ? 1.0 : brightness,
             debug: isDebug, buildTs: buildTimestamp
@@ -110,7 +114,7 @@ public class MyUniverseView: ScreenSaverView, CLLocationManagerDelegate {
     
     private func initializeWebView(
         lat: Double, lon: Double, mode: String, city: String, region: String,
-        country: String, countryCode: String, timezone: String,
+        country: String, countryCode: String, timezone: String, updatedAt: Double,
         lang: String, freq: Int, bright: Double, debug: Bool, buildTs: String
     ) {
         let prefs = WKWebpagePreferences()
@@ -129,6 +133,7 @@ public class MyUniverseView: ScreenSaverView, CLLocationManagerDelegate {
             countryName: "\(country)",
             countryCode: "\(countryCode)",
             timezone: "\(timezone)",
+            updatedAt: \(updatedAt),
             language: "\(lang)",
             brightness: \(bright),
             displayFrequency: \(freq),
@@ -186,6 +191,7 @@ public class MyUniverseView: ScreenSaverView, CLLocationManagerDelegate {
             defaults?.set(loc.coordinate.latitude, forKey: "currentPosition_lat")
             defaults?.set(loc.coordinate.longitude, forKey: "currentPosition_lon")
             defaults?.set("Current Position", forKey: "currentPosition_cityName")
+            defaults?.set(Date().timeIntervalSince1970, forKey: "currentPosition_updatedAt")
             defaults?.synchronize()
             // We do NOT update the active WebView here to prevent flashes. It will take effect next session.
         }
