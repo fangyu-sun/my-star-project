@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "astronomy-engine": "^2.1.19",
-    "satellite.js": "^4.1.4"
+    "satellite.js": "^4.1.4",
+    "tz-lookup": "^6.1.25"
   }
 }

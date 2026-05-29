@@ -1,7 +1,7 @@
 import '../style.css'
 import { getZenithCandidates, updateCandidateAltitude } from './astronomy.js'
 import { generateCopy } from './copywriter.js'
-
+import tzlookup from 'tz-lookup'
 let activeSatellites = [];
 
 async function loadActiveSatellites() {
@@ -203,11 +203,14 @@ startBtn.addEventListener('click', () => {
 
 startBroadcasterSession = function(isScreensaverMode = false, config = {}) {
   const t = UI_TRANSLATIONS[currentLang];
-  let currentLat, currentLon, cityString, isCityDynamic;
+  let currentLat, currentLon, cityString, isCityDynamic, resolvedTimezone;
 
   if (isScreensaverMode) {
-    currentLat = typeof config.latitude === 'number' ? config.latitude : -31.9523;
-    currentLon = typeof config.longitude === 'number' ? config.longitude : 115.8613;
+    currentLat = typeof config.latitude === 'number' ? config.latitude : 51.4779;
+    currentLon = typeof config.longitude === 'number' ? config.longitude : -0.0015;
+    
+    // Resolve timezone via injected config, otherwise fallback to offline lookup
+    resolvedTimezone = config.timezone && config.timezone !== "" ? config.timezone : tzlookup(currentLat, currentLon);
     
     if (config.locationMode === 'city' || config.locationMode === 'default') {
       let parts = [config.cityName, config.regionName, config.countryName].filter(Boolean);
@@ -215,11 +218,11 @@ startBroadcasterSession = function(isScreensaverMode = false, config = {}) {
     } else if (config.locationMode === 'runtimeCurrentLocation') {
       const isZh = config.language === 'zh' || config.language === 'zh-TW';
       cityString = isZh ? "当前位置 (设备实时)" : "Current Location (Device)";
-    } else if (config.locationMode === 'currentLocation' || config.locationMode === 'savedCurrentLocation') {
+    } else if (config.locationMode === 'currentLocation' || config.locationMode === 'savedCurrentLocation' || config.locationMode === 'currentPosition') {
       const isZh = config.language === 'zh' || config.language === 'zh-TW';
       cityString = isZh ? "当前位置 (已保存)" : "Current Location (Saved)";
     } else {
-      cityString = `Lat: ${currentLat.toFixed(4)}, Lon: ${currentLon.toFixed(4)}`;
+      cityString = `${Math.abs(currentLon).toFixed(2)}°${currentLon >= 0 ? 'E' : 'W'}, ${Math.abs(currentLat).toFixed(2)}°${currentLat >= 0 ? 'N' : 'S'}`;
     }
     
     isCityDynamic = false;
@@ -275,7 +278,17 @@ startBroadcasterSession = function(isScreensaverMode = false, config = {}) {
   function updateTime() {
     const date = new Date();
     const localeStr = currentLang === 'zh' ? 'zh-CN' : currentLang === 'ja' ? 'ja-JP' : 'en-US';
-    const timeString = date.toLocaleTimeString(localeStr, { hour: '2-digit', minute: '2-digit', hour12: false });
+    
+    let timeOptions = { hour: '2-digit', minute: '2-digit', hour12: false };
+    if (isScreensaverMode && resolvedTimezone) {
+      try {
+        timeOptions.timeZone = resolvedTimezone;
+      } catch (e) {
+        console.warn("Invalid timezone from config/tz-lookup:", resolvedTimezone);
+      }
+    }
+    
+    const timeString = date.toLocaleTimeString(localeStr, timeOptions);
     
     let displayCity = cityString;
     if (isCityDynamic) {
