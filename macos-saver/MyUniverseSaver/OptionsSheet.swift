@@ -38,6 +38,11 @@ class OptionsWindowController: NSWindowController, NSComboBoxDataSource, NSCombo
     let lonField = NSTextField()
     let findCurrentLocBtn = NSButton(title: "Find Current Location", target: nil, action: nil)
     
+    // Containers for mode toggling
+    let cityRow = NSStackView()
+    let coordsRow = NSStackView()
+    let currentPosRow = NSStackView()
+    
     let langPopUp = NSPopUpButton(frame: .zero, pullsDown: false)
     let freqSlider = NSSlider(value: 1, minValue: 0, maxValue: 2, target: nil, action: nil)
     let freqLabel = NSTextField(labelWithString: "Normal (10s)")
@@ -122,7 +127,6 @@ class OptionsWindowController: NSWindowController, NSComboBoxDataSource, NSCombo
         mainStack.addArrangedSubview(modeStack)
         
         // 1. City UI
-        let cityRow = NSStackView()
         cityRow.orientation = .horizontal
         cityRow.spacing = 10
         let cityLabel = NSTextField(labelWithString: "Search City:")
@@ -137,7 +141,6 @@ class OptionsWindowController: NSWindowController, NSComboBoxDataSource, NSCombo
         modeStack.addArrangedSubview(cityRow)
         
         // 2. Manual UI
-        let coordsRow = NSStackView()
         coordsRow.orientation = .horizontal
         coordsRow.spacing = 10
         let latLabel = NSTextField(labelWithString: "Latitude:")
@@ -153,9 +156,23 @@ class OptionsWindowController: NSWindowController, NSComboBoxDataSource, NSCombo
         modeStack.addArrangedSubview(coordsRow)
         
         // 3. Current Pos UI
+        currentPosRow.orientation = .vertical
+        currentPosRow.alignment = .leading
+        currentPosRow.spacing = 5
         findCurrentLocBtn.target = self
         findCurrentLocBtn.action = #selector(findCurrentLocation)
-        modeStack.addArrangedSubview(findCurrentLocBtn)
+        currentPosRow.addArrangedSubview(findCurrentLocBtn)
+        
+        let descLabel = NSTextField(labelWithString: "Uses last successful location. If unavailable, falls back to Greenwich.")
+        descLabel.textColor = .secondaryLabelColor
+        descLabel.font = NSFont.systemFont(ofSize: 11)
+        descLabel.isEditable = false
+        descLabel.isSelectable = false
+        descLabel.isBordered = false
+        descLabel.backgroundColor = .clear
+        currentPosRow.addArrangedSubview(descLabel)
+        
+        modeStack.addArrangedSubview(currentPosRow)
         
         // Inline Error
         inlineErrorLabel.textColor = .systemRed
@@ -313,10 +330,9 @@ class OptionsWindowController: NSWindowController, NSComboBoxDataSource, NSCombo
     }
     
     func updateContextualUI() {
-        findCurrentLocBtn.isEnabled = (formActiveMode == "currentPosition")
-        citySearchBox.isEnabled = (formActiveMode == "city")
-        latField.isEnabled = (formActiveMode == "manual")
-        lonField.isEnabled = (formActiveMode == "manual")
+        currentPosRow.isHidden = (formActiveMode != "currentPosition")
+        cityRow.isHidden = (formActiveMode != "city")
+        coordsRow.isHidden = (formActiveMode != "manual")
     }
     
     @objc func langChanged(_ sender: NSPopUpButton) {
