@@ -49,7 +49,6 @@ class OptionsWindowController: NSWindowController, NSComboBoxDataSource, NSCombo
     var formCurrentLat: Double?
     var formCurrentLon: Double?
     var formCurrentCityName: String?
-    var formCurrentTimezone: String?
     
     var formCityLat: Double?
     var formCityLon: Double?
@@ -236,7 +235,6 @@ class OptionsWindowController: NSWindowController, NSComboBoxDataSource, NSCombo
         formCurrentLat = defaults?.object(forKey: "currentPosition_lat") as? Double
         formCurrentLon = defaults?.object(forKey: "currentPosition_lon") as? Double
         formCurrentCityName = defaults?.string(forKey: "currentPosition_cityName")
-        formCurrentTimezone = defaults?.string(forKey: "currentPosition_timezone")
         
         formCityLat = defaults?.object(forKey: "city_lat") as? Double
         formCityLon = defaults?.object(forKey: "city_lon") as? Double
@@ -408,7 +406,6 @@ class OptionsWindowController: NSWindowController, NSComboBoxDataSource, NSCombo
         if let clat = formCurrentLat { defaults?.set(clat, forKey: "currentPosition_lat") }
         if let clon = formCurrentLon { defaults?.set(clon, forKey: "currentPosition_lon") }
         if let cn = formCurrentCityName { defaults?.set(cn, forKey: "currentPosition_cityName") }
-        if let ctz = formCurrentTimezone { defaults?.set(ctz, forKey: "currentPosition_timezone") }
         
         if let citylat = formCityLat { defaults?.set(citylat, forKey: "city_lat") }
         if let citylon = formCityLon { defaults?.set(citylon, forKey: "city_lon") }
@@ -475,10 +472,6 @@ class OptionsWindowController: NSWindowController, NSComboBoxDataSource, NSCombo
             formCurrentLat = loc.coordinate.latitude
             formCurrentLon = loc.coordinate.longitude
             formCurrentCityName = "Current Location"
-            let tz = TimeZone.current.identifier
-            if !tz.isEmpty {
-                formCurrentTimezone = tz
-            }
             showInlineError("Location acquired! Don't forget to click Save.") // Not an error, just feedback
             inlineErrorLabel.textColor = .systemGreen
         }
