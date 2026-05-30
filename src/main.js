@@ -137,7 +137,7 @@ const UI_TRANSLATIONS = {
     introText: "此应用需要获取地理位置，<br>以计算此时此刻您上方的宇宙状态。",
     startBtn: "开启连接",
     geoAcquiring: "正在解析空间坐标...",
-    fallbackCity: "北京 (默认位置)",
+    fallbackCity: "格林威治 (默认位置)",
     cachedCity: "缓存位置",
     geoError: "您的浏览器不支持获取地理位置。",
     cityUnknown: "未知地点",
@@ -151,7 +151,7 @@ const UI_TRANSLATIONS = {
     introText: "此應用需要獲取地理位置，<br>以計算此時此刻您上方的宇宙狀態。",
     startBtn: "開啟連接",
     geoAcquiring: "正在解析空間坐標...",
-    fallbackCity: "北京 (默認位置)",
+    fallbackCity: "格林威治 (默認位置)",
     cachedCity: "緩存位置",
     geoError: "您的瀏覽器不支援獲取地理位置。",
     cityUnknown: "未知地點",
@@ -165,7 +165,7 @@ const UI_TRANSLATIONS = {
     introText: "This application requires location access<br>to calculate the cosmic state directly above you right now.",
     startBtn: "Connect",
     geoAcquiring: "Acquiring Spatial Coordinates...",
-    fallbackCity: "Beijing (Default Location)",
+    fallbackCity: "Greenwich (Default Location)",
     cachedCity: "Cached Location",
     geoError: "Your browser does not support geolocation.",
     cityUnknown: "Unknown Location",
@@ -179,7 +179,7 @@ const UI_TRANSLATIONS = {
     introText: "このアプリは現在地情報を取得し、<br>今この瞬間にあなたの真上にある宇宙の状態を计算します。",
     startBtn: "接続開始",
     geoAcquiring: "空間座標を解析中...",
-    fallbackCity: "北京 (デフォルト位置)",
+    fallbackCity: "グリニッジ (デフォルト位置)",
     cachedCity: "キャッシュされた位置",
     geoError: "お使いのブラウザは位置情報の取得に対応していません。",
     cityUnknown: "未知の場所",
@@ -395,8 +395,8 @@ startBroadcasterSession = function(isScreensaverMode = false, config = {}) {
       cityString = safeLocalStorageGet('zenith_last_city') || t.cachedCity;
       isCityDynamic = !safeLocalStorageGet('zenith_last_city');
     } else {
-      currentLat = 39.9042;
-      currentLon = 116.4074;
+      currentLat = 51.4779;
+      currentLon = -0.0015;
       cityString = t.fallbackCity;
       isCityDynamic = true;
     }
@@ -424,7 +424,7 @@ startBroadcasterSession = function(isScreensaverMode = false, config = {}) {
     
     let displayCity = cityString;
     if (isCityDynamic) {
-      displayCity = (currentLang === 'zh' || currentLang === 'zh-TW') ? '北京' : currentLang === 'ja' ? '北京' : 'Beijing';
+      displayCity = (currentLang === 'zh' || currentLang === 'zh-TW') ? '格林威治' : currentLang === 'ja' ? 'グリニッジ' : 'Greenwich';
       if (cachedLatStr && cachedLonStr && !safeLocalStorageGet('zenith_last_city')) {
         displayCity = UI_TRANSLATIONS[currentLang].cachedCity;
       }
@@ -498,7 +498,7 @@ startBroadcasterSession = function(isScreensaverMode = false, config = {}) {
     
     isTransitioning = true;
     
-    const transitionDuration = isManual ? 600 : 2500;
+    const transitionDuration = isManual ? 600 : 3000;
     
     if (isManual) {
       mainCopyEl.classList.add('fast-transition');
@@ -545,6 +545,10 @@ startBroadcasterSession = function(isScreensaverMode = false, config = {}) {
   window.triggerZenithUpdate = () => {
     updateTime();
     renderCurrentCandidate();
+  };
+
+  window.triggerCarouselTick = () => {
+    carouselTick(false);
   };
 
   window.triggerGeocodeRefine = function() {
