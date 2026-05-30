@@ -2,45 +2,17 @@
 <html lang="zh-CN">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="./vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>宇宙状态播报器</title>
+    <title>宇宙状态播报器 (屏保)</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" >
     <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@300;400&family=Inter:wght@300&display=swap" rel="stylesheet">
-    <script  src="./assets/index-0qbru2fR.js"></script>
+    <script  src="./assets/screensaver-CVezdd5k.js"></script>
     <link rel="stylesheet"  href="./assets/style-CZLRtJB1.css">
   </head>
   <body>
     <div id="app">
-      <div id="intro" class="screen active">
-        <p id="intro-text">此应用需要获取地理位置，<br>以计算此时此刻您上方的宇宙状态。</p>
-        <button id="start-btn">开启连接</button>
-        <div class="lang-selector-inline">
-          <span class="lang-inline-opt" data-lang="en">English</span>
-          <span class="lang-inline-sep">/</span>
-          <span class="lang-inline-opt" data-lang="zh">简体中文</span>
-          <span class="lang-inline-sep">/</span>
-          <span class="lang-inline-opt" data-lang="zh-TW">繁體中文</span>
-          <span class="lang-inline-sep">/</span>
-          <span class="lang-inline-opt" data-lang="ja">日本語</span>
-        </div>
-      </div>
-      
-      <div id="loading" class="screen">
-        <div class="dot-pulse"></div>
-      </div>
-
-      <div id="broadcaster" class="screen">
-        <div class="lang-selector-top-right">
-          <span class="lang-inline-opt" data-lang="en">English</span>
-          <span class="lang-inline-sep">/</span>
-          <span class="lang-inline-opt" data-lang="zh">简体中文</span>
-          <span class="lang-inline-sep">/</span>
-          <span class="lang-inline-opt" data-lang="zh-TW">繁體中文</span>
-          <span class="lang-inline-sep">/</span>
-          <span class="lang-inline-opt" data-lang="ja">日本語</span>
-        </div>
+      <div id="broadcaster" class="screen active">
         <div id="location-time-info"></div>
         <div class="zenith-dot"></div>
         <h1 id="main-copy"></h1>
