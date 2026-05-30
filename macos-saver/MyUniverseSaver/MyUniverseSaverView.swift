@@ -9,6 +9,7 @@ public class MyUniverseView: ScreenSaverView, CLLocationManagerDelegate {
     private var webView: WKWebView?
     private let locationManager = CLLocationManager()
     private let defaultsModuleName = "com.fangyu.MyUniverseSaver"
+    private var optionsWindowController: OptionsWindowController?
     
     // Ultimate Fallback (Greenwich)
     private let fallbackLat: Double = 51.4779
@@ -220,6 +221,7 @@ public class MyUniverseView: ScreenSaverView, CLLocationManagerDelegate {
     }
     
     public override var configureSheet: NSWindow? {
-        return OptionsWindowController.shared.window
+        optionsWindowController = OptionsWindowController()
+        return optionsWindowController?.window
     }
 }

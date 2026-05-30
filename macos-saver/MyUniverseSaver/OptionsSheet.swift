@@ -75,12 +75,16 @@ class OptionsWindowController: NSWindowController, NSComboBoxDataSource, NSCombo
         let windowRect = NSRect(x: 0, y: 0, width: 480, height: 380)
         let window = NSPanel(contentRect: windowRect, styleMask: [.titled], backing: .buffered, defer: false)
         window.title = "My Universe Settings"
+        window.isReleasedWhenClosed = false
         super.init(window: window)
         
         locationManager.delegate = self
         
         setupUI()
         loadCitiesDatabase()
+        
+        loadDefaultsToFormState()
+        syncUIWithFormState()
     }
     
     required init?(coder: NSCoder) {
@@ -89,8 +93,6 @@ class OptionsWindowController: NSWindowController, NSComboBoxDataSource, NSCombo
     
     override func windowDidLoad() {
         super.windowDidLoad()
-        loadDefaultsToFormState()
-        syncUIWithFormState()
     }
     
     // MARK: - UI Setup
