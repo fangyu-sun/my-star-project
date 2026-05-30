@@ -325,6 +325,8 @@ function initializeZenith() {
 startBroadcasterSession = function(isScreensaverMode = false, config = {}) {
   const t = UI_TRANSLATIONS[currentLang];
   let currentLat, currentLon, cityString, isCityDynamic, resolvedTimezone;
+  let cachedLatStr = null;
+  let cachedLonStr = null;
 
   if (isScreensaverMode) {
     currentLat = typeof config.latitude === 'number' ? config.latitude : 51.4779;
@@ -384,8 +386,8 @@ startBroadcasterSession = function(isScreensaverMode = false, config = {}) {
       document.body.appendChild(debugDiv);
     }
   } else {
-    const cachedLatStr = safeLocalStorageGet('zenith_last_lat');
-    const cachedLonStr = safeLocalStorageGet('zenith_last_lon');
+    cachedLatStr = safeLocalStorageGet('zenith_last_lat');
+    cachedLonStr = safeLocalStorageGet('zenith_last_lon');
     
     if (cachedLatStr && cachedLonStr) {
       currentLat = parseFloat(cachedLatStr);
