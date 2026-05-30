@@ -24,6 +24,9 @@ export default defineConfig({
     assetsDir: 'assets',
     cssCodeSplit: false, // Force all CSS into a single style file
     rollupOptions: {
+      input: {
+        screensaver: 'screensaver.html'
+      },
       output: {
         format: 'iife', // Target classic self-executing IIFE format
         name: 'MyUniverse', // Expose as global namespace MyUniverse

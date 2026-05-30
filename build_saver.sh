@@ -68,6 +68,9 @@ if [ "$ACTION" == "--install-dev" ]; then
     echo "[1/7] Building Web Project..."
     npx vite build --config vite.screensaver.config.js
     
+    echo "[1.2/7] Adapting dual entry output to index.html..."
+    mv dist/screensaver.html dist/index.html
+    
     echo "[1.5/7] Verifying classic script compliance..."
     
     # 1. Verify no type="module" in index.html
