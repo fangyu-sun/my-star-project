@@ -176,6 +176,7 @@ public class MyUniverseView: ScreenSaverView, CLLocationManagerDelegate {
     // MARK: - Background Location (Silent)
     private func triggerSilentBackgroundLocationFetch() {
         locationManager.delegate = self
+        locationManager.desiredAccuracy = kCLLocationAccuracyThreeKilometers
         
         let authStatus: CLAuthorizationStatus
         if #available(macOS 11.0, *) {

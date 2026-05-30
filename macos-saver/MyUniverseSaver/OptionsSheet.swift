@@ -79,6 +79,7 @@ class OptionsWindowController: NSWindowController, NSComboBoxDataSource, NSCombo
         super.init(window: window)
         
         locationManager.delegate = self
+        locationManager.desiredAccuracy = kCLLocationAccuracyThreeKilometers
         
         setupUI()
         loadCitiesDatabase()
