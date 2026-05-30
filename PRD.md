@@ -463,6 +463,20 @@ Close
 
 ---
 
+### Live Preview System (实时预览系统)
+
+屏保设置面板（Options Panel）支持水平分栏设计（Split Layout）。
+
+左侧渲染当前配置的“实时静态预览（Live Preview）”，右侧展示设置项控件。
+
+实时预览满足：
+
+* **沙盒离线读取 / Sandboxed Offline Access**：预览 WebView 必须载入包内完全离线的静态网页，不加载任何远程 API，不触发网络访问。
+* **参数反应性 / Form State Reactivity**：当右侧的表单控件（位置模式切换、选择城市、手动输入经纬度、修改语言选项、拖拽亮度或频率滑块等）发生任何变化时，左侧预览视图必须在 50ms 内响应并更新展示内容。
+* **事务机制信赖 / Transaction Model Trust**：预览读取且仅读取当前的暂存表单状态（Form State）。若用户取消或关闭设置面板，该预览所反应的所有配置数据均被立刻安全丢弃，不得写入盘上的 `UserDefaults` 储存区。
+
+---
+
 ## 11. Display Settings
 
 ### Language
