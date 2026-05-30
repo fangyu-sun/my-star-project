@@ -4,12 +4,14 @@ import WebKit
 import CoreLocation
 
 @objc(MyUniverseView)
-public class MyUniverseView: ScreenSaverView, CLLocationManagerDelegate {
+public class MyUniverseView: ScreenSaverView, CLLocationManagerDelegate, WKScriptMessageHandler {
     
     private var webView: WKWebView?
     private let locationManager = CLLocationManager()
     private let defaultsModuleName = "com.fangyu.MyUniverseSaver"
     private var optionsWindowController: OptionsWindowController?
+    private var updateTimer: Timer?
+    private var carouselTimer: Timer?
     
     // Ultimate Fallback (Greenwich)
     private let fallbackLat: Double = 51.4779
@@ -143,9 +145,57 @@ public class MyUniverseView: ScreenSaverView, CLLocationManagerDelegate {
         };
         """
         
-        let userScript = WKUserScript(source: scriptSource, injectionTime: .atDocumentStart, forMainFrameOnly: true)
+        let bridgeScriptSource = """
+        (function() {
+            var origLog = console.log;
+            var origError = console.error;
+
+            console.log = function() {
+                var args = Array.prototype.slice.call(arguments);
+                var msg = args.map(function(arg) {
+                    return (typeof arg === 'object') ? JSON.stringify(arg) : String(arg);
+                }).join(' ');
+                origLog.apply(console, arguments);
+                if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.consoleLog) {
+                    window.webkit.messageHandlers.consoleLog.postMessage(msg);
+                }
+            };
+
+            console.error = function() {
+                var args = Array.prototype.slice.call(arguments);
+                var msg = args.map(function(arg) {
+                    return (typeof arg === 'object') ? JSON.stringify(arg) : String(arg);
+                }).join(' ');
+                origError.apply(console, arguments);
+                if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.consoleError) {
+                    window.webkit.messageHandlers.consoleError.postMessage(msg);
+                }
+            };
+
+            window.onerror = function(message, source, lineno, colno, error) {
+                var errMsg = "[GLOBAL ERROR] " + message + " at " + source + ":" + lineno + ":" + colno;
+                if (error && error.stack) {
+                    errMsg += "\\nStack: " + error.stack;
+                }
+                console.error(errMsg);
+            };
+
+            window.addEventListener("unhandledrejection", function(e) {
+                var reason = e.reason;
+                var errMsg = "[PROMISE ERROR] " + (reason && reason.stack ? reason.stack : String(reason));
+                console.error(errMsg);
+            });
+        })();
+        """
+        
+        let bridgeScript = WKUserScript(source: bridgeScriptSource, injectionTime: .atDocumentStart, forMainFrameOnly: true)
+        let configScript = WKUserScript(source: scriptSource, injectionTime: .atDocumentStart, forMainFrameOnly: true)
+        
         let userContentController = WKUserContentController()
-        userContentController.addUserScript(userScript)
+        userContentController.addUserScript(bridgeScript)
+        userContentController.addUserScript(configScript)
+        userContentController.add(WeakScriptMessageHandler(self), name: "consoleLog")
+        userContentController.add(WeakScriptMessageHandler(self), name: "consoleError")
         webConfiguration.userContentController = userContentController
         
         DispatchQueue.main.async { [weak self] in
@@ -211,10 +261,31 @@ public class MyUniverseView: ScreenSaverView, CLLocationManagerDelegate {
     // MARK: - Lifecycle
     public override func startAnimation() {
         super.startAnimation()
+        
+        // Native Swift Timer to bypass aggressive WKWebView background JS timer throttling in Screensaver Sandbox
+        updateTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
+            DispatchQueue.main.async {
+                self?.webView?.evaluateJavaScript("if(window.triggerZenithUpdate) window.triggerZenithUpdate();", completionHandler: nil)
+            }
+        }
+        
+        let defaults = ScreenSaverDefaults(forModuleWithName: defaultsModuleName)
+        let displayFrequency = defaults?.integer(forKey: "displayFrequency") ?? 10
+        let freq = displayFrequency == 0 ? 10 : displayFrequency
+        
+        carouselTimer = Timer.scheduledTimer(withTimeInterval: Double(freq), repeats: true) { [weak self] _ in
+            DispatchQueue.main.async {
+                self?.webView?.evaluateJavaScript("if(window.triggerCarouselTick) window.triggerCarouselTick();", completionHandler: nil)
+            }
+        }
     }
     
     public override func stopAnimation() {
         super.stopAnimation()
+        updateTimer?.invalidate()
+        updateTimer = nil
+        carouselTimer?.invalidate()
+        carouselTimer = nil
     }
     
     public override func animateOneFrame() {
@@ -228,5 +299,36 @@ public class MyUniverseView: ScreenSaverView, CLLocationManagerDelegate {
     public override var configureSheet: NSWindow? {
         optionsWindowController = OptionsWindowController()
         return optionsWindowController?.window
+    }
+    
+    public func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+        if message.name == "consoleLog" {
+            if let bodyString = message.body as? String {
+                print("[JS LOG] \(bodyString)")
+                NSLog("[JS LOG] \(bodyString)")
+            }
+        } else if message.name == "consoleError" {
+            if let bodyString = message.body as? String {
+                print("[JS ERROR] \(bodyString)")
+                NSLog("[JS ERROR] \(bodyString)")
+            }
+        }
+    }
+    
+    deinit {
+        webView?.configuration.userContentController.removeScriptMessageHandler(forName: "consoleLog")
+        webView?.configuration.userContentController.removeScriptMessageHandler(forName: "consoleError")
+        webView?.removeFromSuperview()
+        webView = nil
+    }
+}
+
+private class WeakScriptMessageHandler: NSObject, WKScriptMessageHandler {
+    weak var delegate: WKScriptMessageHandler?
+    init(_ delegate: WKScriptMessageHandler) {
+        self.delegate = delegate
+    }
+    func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+        delegate?.userContentController(userContentController, didReceive: message)
     }
 }

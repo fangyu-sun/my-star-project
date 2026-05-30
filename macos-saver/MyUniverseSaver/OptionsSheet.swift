@@ -1,6 +1,7 @@
 import Cocoa
 import ScreenSaver
 import CoreLocation
+import WebKit
 
 struct City: Codable {
     let c: String
@@ -14,7 +15,7 @@ struct City: Codable {
     let p: Int
 }
 
-class OptionsWindowController: NSWindowController, NSComboBoxDataSource, NSComboBoxDelegate, NSTextFieldDelegate, CLLocationManagerDelegate {
+class OptionsWindowController: NSWindowController, NSComboBoxDataSource, NSComboBoxDelegate, NSTextFieldDelegate, CLLocationManagerDelegate, WKScriptMessageHandler {
     
     static let shared = OptionsWindowController()
     let defaultsModuleName = "com.fangyu.MyUniverseSaver"
@@ -27,6 +28,19 @@ class OptionsWindowController: NSWindowController, NSComboBoxDataSource, NSCombo
     // City Database
     var allCities: [City] = []
     var filteredCities: [City] = []
+    
+    // Live Preview Support
+    let previewContainer = NSView()
+    private var previewWebView: WKWebView?
+    
+    // Ultimate Fallback (Greenwich)
+    private let fallbackLat: Double = 51.4779
+    private let fallbackLon: Double = -0.0015
+    private let fallbackCityName = "Greenwich"
+    private let fallbackRegionName = "London"
+    private let fallbackCountryName = "United Kingdom"
+    private let fallbackCountryCode = "GB"
+    private let fallbackTimezone = "Europe/London"
     
     // UI Elements
     let modeSegment = NSSegmentedControl(labels: ["Current Position", "City", "Manual"], trackingMode: .selectOne, target: nil, action: nil)
@@ -72,7 +86,7 @@ class OptionsWindowController: NSWindowController, NSComboBoxDataSource, NSCombo
     
     init() {
         defaults = ScreenSaverDefaults(forModuleWithName: defaultsModuleName)
-        let windowRect = NSRect(x: 0, y: 0, width: 480, height: 380)
+        let windowRect = NSRect(x: 0, y: 0, width: 780, height: 450)
         let window = NSPanel(contentRect: windowRect, styleMask: [.titled], backing: .buffered, defer: false)
         window.title = "My Universe Settings"
         window.isReleasedWhenClosed = false
@@ -86,6 +100,8 @@ class OptionsWindowController: NSWindowController, NSComboBoxDataSource, NSCombo
         
         loadDefaultsToFormState()
         syncUIWithFormState()
+        
+        updatePreview()
     }
     
     required init?(coder: NSCoder) {
@@ -100,34 +116,78 @@ class OptionsWindowController: NSWindowController, NSComboBoxDataSource, NSCombo
     private func setupUI() {
         guard let contentView = window?.contentView else { return }
         
-        let mainStack = NSStackView()
-        mainStack.orientation = .vertical
-        mainStack.alignment = .leading
-        mainStack.spacing = 15
-        mainStack.translatesAutoresizingMaskIntoConstraints = false
-        contentView.addSubview(mainStack)
+        let rootStack = NSStackView()
+        rootStack.orientation = .horizontal
+        rootStack.alignment = .top
+        rootStack.spacing = 20
+        rootStack.translatesAutoresizingMaskIntoConstraints = false
+        contentView.addSubview(rootStack)
         
         NSLayoutConstraint.activate([
-            mainStack.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 20),
-            mainStack.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
-            mainStack.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20)
+            rootStack.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 20),
+            rootStack.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
+            rootStack.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
+            rootStack.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -20)
         ])
+        
+        // Left Column (Live Preview, width 380)
+        let leftStack = NSStackView()
+        leftStack.orientation = .vertical
+        leftStack.alignment = .leading
+        leftStack.spacing = 12
+        leftStack.translatesAutoresizingMaskIntoConstraints = false
+        leftStack.widthAnchor.constraint(equalToConstant: 380).isActive = true
+        
+        let previewTitle = NSTextField(labelWithString: "Live Preview | 实时预览")
+        previewTitle.font = NSFont.boldSystemFont(ofSize: 14)
+        leftStack.addArrangedSubview(previewTitle)
+        
+        previewContainer.translatesAutoresizingMaskIntoConstraints = false
+        previewContainer.wantsLayer = true
+        previewContainer.layer?.backgroundColor = NSColor.black.cgColor
+        previewContainer.layer?.cornerRadius = 8
+        previewContainer.layer?.masksToBounds = true
+        
+        NSLayoutConstraint.activate([
+            previewContainer.widthAnchor.constraint(equalToConstant: 380),
+            previewContainer.heightAnchor.constraint(equalToConstant: 260)
+        ])
+        leftStack.addArrangedSubview(previewContainer)
+        
+        let previewDesc = NSTextField(labelWithString: "Adaptively visualizes the universe state according to current location, language, and brightness options.\n实时根据当前位置、语言及文本辉度，高保真模拟屏保渲染。")
+        previewDesc.textColor = .secondaryLabelColor
+        previewDesc.font = NSFont.systemFont(ofSize: 11)
+        previewDesc.isEditable = false
+        previewDesc.isSelectable = false
+        previewDesc.isBordered = false
+        previewDesc.backgroundColor = .clear
+        leftStack.addArrangedSubview(previewDesc)
+        
+        rootStack.addArrangedSubview(leftStack)
+        
+        // Right Column (Settings Controls, width 340)
+        let rightStack = NSStackView()
+        rightStack.orientation = .vertical
+        rightStack.alignment = .leading
+        rightStack.spacing = 15
+        rightStack.translatesAutoresizingMaskIntoConstraints = false
+        rightStack.widthAnchor.constraint(equalToConstant: 340).isActive = true
         
         // Location Settings
         let locLabel = NSTextField(labelWithString: "Location Mode")
         locLabel.font = NSFont.boldSystemFont(ofSize: 14)
-        mainStack.addArrangedSubview(locLabel)
+        rightStack.addArrangedSubview(locLabel)
         
         modeSegment.target = self
         modeSegment.action = #selector(modeChanged(_:))
-        mainStack.addArrangedSubview(modeSegment)
+        rightStack.addArrangedSubview(modeSegment)
         
         // Contextual UI Container
         let modeStack = NSStackView()
         modeStack.orientation = .vertical
         modeStack.alignment = .leading
         modeStack.spacing = 10
-        mainStack.addArrangedSubview(modeStack)
+        rightStack.addArrangedSubview(modeStack)
         
         // 1. City UI
         cityRow.orientation = .horizontal
@@ -137,7 +197,7 @@ class OptionsWindowController: NSWindowController, NSComboBoxDataSource, NSCombo
         citySearchBox.dataSource = self
         citySearchBox.delegate = self
         citySearchBox.completes = true
-        citySearchBox.widthAnchor.constraint(equalToConstant: 250).isActive = true
+        citySearchBox.widthAnchor.constraint(equalToConstant: 220).isActive = true
         citySearchBox.placeholderString = "Search e.g. London"
         cityRow.addArrangedSubview(cityLabel)
         cityRow.addArrangedSubview(citySearchBox)
@@ -185,17 +245,17 @@ class OptionsWindowController: NSWindowController, NSComboBoxDataSource, NSCombo
         inlineErrorLabel.backgroundColor = .clear
         inlineErrorLabel.font = NSFont.systemFont(ofSize: 11)
         inlineErrorLabel.isHidden = true
-        mainStack.addArrangedSubview(inlineErrorLabel)
+        rightStack.addArrangedSubview(inlineErrorLabel)
         
         let separator2 = NSBox()
         separator2.boxType = .separator
-        separator2.widthAnchor.constraint(equalToConstant: 440).isActive = true
-        mainStack.addArrangedSubview(separator2)
+        separator2.widthAnchor.constraint(equalToConstant: 340).isActive = true
+        rightStack.addArrangedSubview(separator2)
         
         // Display Settings
         let displayLabel = NSTextField(labelWithString: "Display Settings")
         displayLabel.font = NSFont.boldSystemFont(ofSize: 14)
-        mainStack.addArrangedSubview(displayLabel)
+        rightStack.addArrangedSubview(displayLabel)
         
         // Lang Row
         let langRow = NSStackView()
@@ -205,7 +265,7 @@ class OptionsWindowController: NSWindowController, NSComboBoxDataSource, NSCombo
         langPopUp.action = #selector(langChanged(_:))
         langRow.addArrangedSubview(NSTextField(labelWithString: "Language:"))
         langRow.addArrangedSubview(langPopUp)
-        mainStack.addArrangedSubview(langRow)
+        rightStack.addArrangedSubview(langRow)
         
         // Freq Row
         let freqRow = NSStackView()
@@ -218,7 +278,7 @@ class OptionsWindowController: NSWindowController, NSComboBoxDataSource, NSCombo
         freqRow.addArrangedSubview(NSTextField(labelWithString: "Frequency:"))
         freqRow.addArrangedSubview(freqSlider)
         freqRow.addArrangedSubview(freqLabel)
-        mainStack.addArrangedSubview(freqRow)
+        rightStack.addArrangedSubview(freqRow)
         
         // Glow Row
         let glowRow = NSStackView()
@@ -228,13 +288,13 @@ class OptionsWindowController: NSWindowController, NSComboBoxDataSource, NSCombo
         glowSlider.widthAnchor.constraint(equalToConstant: 100).isActive = true
         glowRow.addArrangedSubview(NSTextField(labelWithString: "Text Glow:"))
         glowRow.addArrangedSubview(glowSlider)
-        mainStack.addArrangedSubview(glowRow)
+        rightStack.addArrangedSubview(glowRow)
         
         // Bottom Buttons
         let bottomStack = NSStackView()
         bottomStack.orientation = .horizontal
         bottomStack.alignment = .centerY
-        bottomStack.widthAnchor.constraint(equalToConstant: 440).isActive = true
+        bottomStack.widthAnchor.constraint(equalToConstant: 340).isActive = true
         
         let cancelBtn = NSButton(title: "Cancel", target: self, action: #selector(cancelPressed))
         let saveBtn = NSButton(title: "Save", target: self, action: #selector(savePressed))
@@ -245,7 +305,9 @@ class OptionsWindowController: NSWindowController, NSComboBoxDataSource, NSCombo
         
         bottomStack.addView(NSView(), in: .leading) // spacer
         bottomStack.addView(btnContainer, in: .trailing)
-        mainStack.addArrangedSubview(bottomStack)
+        rightStack.addArrangedSubview(bottomStack)
+        
+        rootStack.addArrangedSubview(rightStack)
     }
     
     // MARK: - Transaction Model (Form State)
@@ -330,6 +392,7 @@ class OptionsWindowController: NSWindowController, NSComboBoxDataSource, NSCombo
         default: formActiveMode = "city"
         }
         updateContextualUI()
+        updatePreview()
     }
     
     func updateContextualUI() {
@@ -346,6 +409,7 @@ class OptionsWindowController: NSWindowController, NSComboBoxDataSource, NSCombo
         case 3: formLanguage = "ja"
         default: formLanguage = "en"
         }
+        updatePreview()
     }
     
     @objc func freqChanged(_ sender: NSSlider) {
@@ -361,10 +425,12 @@ class OptionsWindowController: NSWindowController, NSComboBoxDataSource, NSCombo
             freqLabel.stringValue = "Fast (5s)"
         default: break
         }
+        updatePreview()
     }
     
     @objc func glowChanged(_ sender: NSSlider) {
         formBrightness = sender.doubleValue
+        updatePreview()
     }
     
     // MARK: - Validation & Save
@@ -383,6 +449,31 @@ class OptionsWindowController: NSWindowController, NSComboBoxDataSource, NSCombo
         }
         
         if formActiveMode == "city" {
+            if formCityLat == nil || formCityLon == nil {
+                let searchString = citySearchBox.stringValue.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+                if !searchString.isEmpty {
+                    let match = allCities.first { city in
+                        city.c.lowercased() == searchString ||
+                        (city.alt?.contains(where: { $0.lowercased() == searchString }) ?? false) ||
+                        "\(city.c.lowercased()), \(city.cn.lowercased())" == searchString
+                    } ?? allCities.first { city in
+                        searchString.hasPrefix(city.c.lowercased()) ||
+                        city.c.lowercased().hasPrefix(searchString)
+                    }
+                    if let foundCity = match {
+                        formCityLat = foundCity.lat
+                        formCityLon = foundCity.lon
+                        formCityCityName = foundCity.c
+                        formCityCountryName = foundCity.cn
+                        formCityCountryCode = foundCity.cc
+                        formCityTimezone = foundCity.tz
+                        
+                        // Update combo box with the resolved formatted string
+                        citySearchBox.stringValue = "\(foundCity.c), \(foundCity.cn)"
+                    }
+                }
+            }
+            
             if formCityLat == nil || formCityLon == nil {
                 showInlineError("Please select a valid city from the search dropdown.")
                 return
@@ -465,7 +556,9 @@ class OptionsWindowController: NSWindowController, NSComboBoxDataSource, NSCombo
         }
         
         if authStatus == .denied || authStatus == .restricted {
-            showInlineError("Could not get current location (Denied).")
+            showInlineError("CoreLocation denied. Resolving location via GeoIP...")
+            inlineErrorLabel.textColor = .systemOrange
+            fetchIPGeolocation()
             return
         }
         
@@ -473,13 +566,61 @@ class OptionsWindowController: NSWindowController, NSComboBoxDataSource, NSCombo
         findCurrentLocBtn.isEnabled = false
         
         locationTimer?.invalidate()
-        locationTimer = Timer.scheduledTimer(withTimeInterval: 10.0, repeats: false) { [weak self] _ in
+        locationTimer = Timer.scheduledTimer(withTimeInterval: 4.0, repeats: false) { [weak self] _ in
             self?.locationManager.stopUpdatingLocation()
-            self?.handleLocationFailure(reason: "Could not get current location (Timeout).")
+            self?.showInlineError("CoreLocation timed out. Resolving via GeoIP...")
+            self?.inlineErrorLabel.textColor = .systemOrange
+            self?.fetchIPGeolocation()
         }
         
         locationManager.requestWhenInUseAuthorization()
         locationManager.requestLocation()
+    }
+    
+    private func fetchIPGeolocation() {
+        guard let url = URL(string: "https://ipapi.co/json/") else {
+            self.handleLocationFailure(reason: "Could not get current location (Invalid URL).")
+            return
+        }
+        
+        let task = URLSession.shared.dataTask(with: url) { [weak self] data, response, error in
+            DispatchQueue.main.async {
+                self?.locationTimer?.invalidate()
+                self?.findCurrentLocBtn.title = "Find Current Location"
+                self?.findCurrentLocBtn.isEnabled = true
+                
+                guard let self = self else { return }
+                
+                if let error = error {
+                    self.handleLocationFailure(reason: "Could not get current location (\(error.localizedDescription)).")
+                    return
+                }
+                
+                guard let data = data else {
+                    self.handleLocationFailure(reason: "Could not get current location (No data).")
+                    return
+                }
+                
+                do {
+                    if let json = try JSONSerialization.jsonObject(with: data, options: []) as? [String: Any] {
+                        if let lat = json["latitude"] as? Double,
+                           let lon = json["longitude"] as? Double {
+                            self.formCurrentLat = lat
+                            self.formCurrentLon = lon
+                            self.formCurrentCityName = json["city"] as? String ?? "Current Location"
+                            
+                            self.showInlineError("Location acquired via GeoIP! Click Save.")
+                            self.inlineErrorLabel.textColor = .systemGreen
+                            self.updatePreview()
+                            return
+                        }
+                    }
+                } catch {}
+                
+                self.handleLocationFailure(reason: "Could not get current location (Resolution failed).")
+            }
+        }
+        task.resume()
     }
     
     func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
@@ -493,12 +634,16 @@ class OptionsWindowController: NSWindowController, NSComboBoxDataSource, NSCombo
             formCurrentCityName = "Current Location"
             showInlineError("Location acquired! Don't forget to click Save.") // Not an error, just feedback
             inlineErrorLabel.textColor = .systemGreen
+            
+            updatePreview()
         }
     }
     
     func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
         locationTimer?.invalidate()
-        handleLocationFailure(reason: "Could not get current location. Please check privacy settings.")
+        showInlineError("CoreLocation failed. Resolving location via GeoIP...")
+        inlineErrorLabel.textColor = .systemOrange
+        fetchIPGeolocation()
     }
     
     private func handleLocationFailure(reason: String) {
@@ -550,23 +695,268 @@ class OptionsWindowController: NSWindowController, NSComboBoxDataSource, NSCombo
             formCityCountryName = city.cn
             formCityCountryCode = city.cc
             formCityTimezone = city.tz
+            
+            updatePreview()
         }
     }
     
     func controlTextDidChange(_ obj: Notification) {
-        guard let comboBox = obj.object as? NSComboBox, comboBox == citySearchBox else { return }
-        hideError()
-        let searchString = comboBox.stringValue.lowercased()
-        
-        if searchString.isEmpty {
-            filteredCities = Array(allCities.prefix(20))
-        } else {
-            let matches = allCities.filter { city in
-                city.c.lowercased().hasPrefix(searchString) ||
-                (city.alt?.contains(where: { $0.lowercased().hasPrefix(searchString) }) ?? false)
+        if let comboBox = obj.object as? NSComboBox, comboBox == citySearchBox {
+            hideError()
+            let searchString = comboBox.stringValue.lowercased()
+            
+            // Prevent feedback re-filtering when city is selected
+            if let selectedCityName = formCityCityName, let selectedCountryName = formCityCountryName,
+               searchString == "\(selectedCityName), \(selectedCountryName)".lowercased() {
+                return
             }
-            filteredCities = Array(matches.sorted(by: { $0.p > $1.p }).prefix(20))
+            
+            // User typed something new. Reset selected city coordinates so savePressed() will force matching.
+            formCityLat = nil
+            formCityLon = nil
+            formCityCityName = nil
+            formCityCountryName = nil
+            formCityCountryCode = nil
+            formCityTimezone = nil
+            
+            let trimmedSearch = comboBox.stringValue.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            if !trimmedSearch.isEmpty {
+                let match = allCities.first { city in
+                    city.c.lowercased() == trimmedSearch ||
+                    "\(city.c.lowercased()), \(city.cn.lowercased())" == trimmedSearch
+                }
+                if let foundCity = match {
+                    formCityLat = foundCity.lat
+                    formCityLon = foundCity.lon
+                    formCityCityName = foundCity.c
+                    formCityCountryName = foundCity.cn
+                    formCityCountryCode = foundCity.cc
+                    formCityTimezone = foundCity.tz
+                }
+            }
+            updatePreview()
+            
+            if searchString.isEmpty {
+                filteredCities = Array(allCities.prefix(20))
+            } else {
+                let matches = allCities.filter { city in
+                    city.c.lowercased().hasPrefix(searchString) ||
+                    (city.alt?.contains(where: { $0.lowercased().hasPrefix(searchString) }) ?? false)
+                }
+                filteredCities = Array(matches.sorted(by: { $0.p > $1.p }).prefix(20))
+            }
+            comboBox.reloadData()
+            if filteredCities.count > 0 {
+                let ax = NSAccessibility.unignoredDescendant(of: comboBox)
+                if let axElement = ax as? NSAccessibilityElement {
+                    axElement.accessibilitySetValue(true as CFBoolean, forAttribute: .expanded)
+                }
+            }
+        } else if let textField = obj.object as? NSTextField, (textField == latField || textField == lonField) {
+            // Update manual form variables if they are valid doubles
+            if let lat = Double(latField.stringValue), lat >= -90 && lat <= 90 {
+                formManualLat = lat
+            }
+            if let lon = Double(lonField.stringValue), lon >= -180 && lon <= 180 {
+                formManualLon = lon
+            }
+            updatePreview()
         }
-        comboBox.reloadData()
+    }
+    
+    // ================= NEW: Live Preview Core Implementation =================
+    private func updatePreview() {
+        var finalLat = fallbackLat
+        var finalLon = fallbackLon
+        var finalCityName = fallbackCityName
+        var finalRegionName = fallbackRegionName
+        var finalCountryName = fallbackCountryName
+        var finalCountryCode = fallbackCountryCode
+        var finalTimezone = fallbackTimezone
+        let finalUpdatedAt: Double = 0
+        
+        switch formActiveMode {
+        case "currentPosition":
+            if let lat = formCurrentLat, let lon = formCurrentLon {
+                finalLat = lat
+                finalLon = lon
+                finalCityName = formCurrentCityName ?? "Current Position"
+                finalRegionName = ""
+                finalCountryName = ""
+                finalCountryCode = ""
+                finalTimezone = ""
+            }
+        case "city":
+            if let lat = formCityLat, let lon = formCityLon {
+                finalLat = lat
+                finalLon = lon
+                finalCityName = formCityCityName ?? fallbackCityName
+                finalRegionName = ""
+                finalCountryName = formCityCountryName ?? ""
+                finalCountryCode = formCityCountryCode ?? ""
+                finalTimezone = formCityTimezone ?? fallbackTimezone
+            }
+        case "manual":
+            if let lat = Double(latField.stringValue), let lon = Double(lonField.stringValue),
+               lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180 {
+                finalLat = lat
+                finalLon = lon
+                finalCityName = "Manual Coordinates"
+                finalRegionName = ""
+                finalCountryName = ""
+                finalCountryCode = ""
+                finalTimezone = ""
+            } else if let lat = formManualLat, let lon = formManualLon {
+                finalLat = lat
+                finalLon = lon
+                finalCityName = "Manual Coordinates"
+                finalRegionName = ""
+                finalCountryName = ""
+                finalCountryCode = ""
+                finalTimezone = ""
+            }
+        default:
+            break
+        }
+        
+        let bundle = Bundle(for: type(of: self))
+        let buildTimestamp = bundle.object(forInfoDictionaryKey: "MyUniverseBuildTimestamp") as? String ?? "Unknown"
+        
+        let prefs = WKWebpagePreferences()
+        prefs.allowsContentJavaScript = true
+        let webConfiguration = WKWebViewConfiguration()
+        webConfiguration.defaultWebpagePreferences = prefs
+        
+        let scriptSource = """
+        window.MY_UNIVERSE_CONFIG = {
+            runtime: "screensaver",
+            latitude: \(finalLat),
+            longitude: \(finalLon),
+            locationMode: "\(formActiveMode)",
+            cityName: "\(finalCityName)",
+            regionName: "\(finalRegionName)",
+            countryName: "\(finalCountryName)",
+            countryCode: "\(finalCountryCode)",
+            timezone: "\(finalTimezone)",
+            updatedAt: \(finalUpdatedAt),
+            language: "\(formLanguage)",
+            brightness: \(formBrightness),
+            displayFrequency: \(formDisplayFrequency),
+            debug: \(formDebug ? "true" : "false"),
+            buildTimestamp: "\(buildTimestamp)"
+        };
+        """
+        
+        let bridgeScriptSource = """
+        (function() {
+            var origLog = console.log;
+            var origError = console.error;
+
+            console.log = function() {
+                var args = Array.prototype.slice.call(arguments);
+                var msg = args.map(function(arg) {
+                    return (typeof arg === 'object') ? JSON.stringify(arg) : String(arg);
+                }).join(' ');
+                origLog.apply(console, arguments);
+                if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.consoleLog) {
+                    window.webkit.messageHandlers.consoleLog.postMessage(msg);
+                }
+            };
+
+            console.error = function() {
+                var args = Array.prototype.slice.call(arguments);
+                var msg = args.map(function(arg) {
+                    return (typeof arg === 'object') ? JSON.stringify(arg) : String(arg);
+                }).join(' ');
+                origError.apply(console, arguments);
+                if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.consoleError) {
+                    window.webkit.messageHandlers.consoleError.postMessage(msg);
+                }
+            };
+
+            window.onerror = function(message, source, lineno, colno, error) {
+                var errMsg = "[GLOBAL ERROR] " + message + " at " + source + ":" + lineno + ":" + colno;
+                if (error && error.stack) {
+                    errMsg += "\\nStack: " + error.stack;
+                }
+                console.error(errMsg);
+            };
+
+            window.addEventListener("unhandledrejection", function(e) {
+                var reason = e.reason;
+                var errMsg = "[PROMISE ERROR] " + (reason && reason.stack ? reason.stack : String(reason));
+                console.error(errMsg);
+            });
+        })();
+        """
+        
+        let bridgeScript = WKUserScript(source: bridgeScriptSource, injectionTime: .atDocumentStart, forMainFrameOnly: true)
+        let configScript = WKUserScript(source: scriptSource, injectionTime: .atDocumentStart, forMainFrameOnly: true)
+        
+        let userContentController = WKUserContentController()
+        userContentController.addUserScript(bridgeScript)
+        userContentController.addUserScript(configScript)
+        userContentController.add(WeakScriptMessageHandler(self), name: "consoleLog")
+        userContentController.add(WeakScriptMessageHandler(self), name: "consoleError")
+        webConfiguration.userContentController = userContentController
+        
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            
+            // Remove old WebView and unregister message handlers to prevent leaks / bad accesses
+            if let oldWV = self.previewWebView {
+                oldWV.configuration.userContentController.removeScriptMessageHandler(forName: "consoleLog")
+                oldWV.configuration.userContentController.removeScriptMessageHandler(forName: "consoleError")
+                oldWV.removeFromSuperview()
+            }
+            
+            // Instantiate new WebView inside container with exact bounds (380x260) to avoid zero-bounds issues
+            let wv = WKWebView(frame: NSRect(x: 0, y: 0, width: 380, height: 260), configuration: webConfiguration)
+            wv.autoresizingMask = [.width, .height]
+            
+            if wv.responds(to: Selector(("setDrawsBackground:"))) {
+                wv.setValue(false, forKey: "drawsBackground")
+            }
+            
+            self.previewContainer.addSubview(wv)
+            self.previewWebView = wv
+            
+            // Load offline HTML
+            if let bundleURL = bundle.url(forResource: "index", withExtension: "html", subdirectory: "web") {
+                let dirURL = bundleURL.deletingLastPathComponent()
+                wv.loadFileURL(bundleURL, allowingReadAccessTo: dirURL)
+            }
+        }
+    }
+    
+    func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+        if message.name == "consoleLog" {
+            if let bodyString = message.body as? String {
+                print("[JS LOG] \(bodyString)")
+                NSLog("[JS LOG] \(bodyString)")
+            }
+        } else if message.name == "consoleError" {
+            if let bodyString = message.body as? String {
+                print("[JS ERROR] \(bodyString)")
+                NSLog("[JS ERROR] \(bodyString)")
+            }
+        }
+    }
+    
+    deinit {
+        previewWebView?.configuration.userContentController.removeScriptMessageHandler(forName: "consoleLog")
+        previewWebView?.configuration.userContentController.removeScriptMessageHandler(forName: "consoleError")
+        previewWebView?.removeFromSuperview()
+        previewWebView = nil
+    }
+}
+
+private class WeakScriptMessageHandler: NSObject, WKScriptMessageHandler {
+    weak var delegate: WKScriptMessageHandler?
+    init(_ delegate: WKScriptMessageHandler) {
+        self.delegate = delegate
+    }
+    func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+        delegate?.userContentController(userContentController, didReceive: message)
     }
 }
