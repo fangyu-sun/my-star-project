@@ -1,17 +1,35 @@
 import { constellations } from './data/constellations.js';
 
+function toTraditional(text) {
+    if (!text) return "";
+    const replacements = {
+        '个': '個', '颗': '顆', '国': '國', '际': '際', '载': '載', '类': '類', '头': '頭', '顶': '頂',
+        '飞': '飛', '时': '時', '离': '離', '来': '來', '经': '經', '过': '過', '万': '萬', '亿': '億',
+        '处': '處', '缓': '緩', '动': '動', '阳': '陽', '于': '於', '号': '號', '仅': '僅', '没': '沒',
+        '恒': '恆', '暂': '暫', '归': '歸', '链': '鏈',
+        '宝': '寶', '鹰': '鷹', '马': '馬', '鱼': '魚', '仪': '儀', '镜': '鏡', '双': '雙', '绘': '繪',
+        '网': '網', '罗': '羅', '规': '規', '龙': '龍', '门': '門', '蝎': '蠍', '长': '長',
+        '钟': '鐘', '盘': '盤', '织': '織', '参': '參', '宿': '宿'
+    };
+    return text.split('').map(char => replacements[char] || char).join('');
+}
+
 function getRandomTemplate(templates) {
     return templates[Math.floor(Math.random() * templates.length)];
 }
 
 export function generateCopy(celestialObj, lang = 'zh') {
+    const isZhTw = lang === 'zh-TW';
+    const targetLang = isZhTw ? 'zh' : lang;
+    const returnCopy = (text) => isZhTw ? toTraditional(text) : text;
+
     if (!celestialObj) {
         const emptyTemplates = {
             zh: ["此刻，只有深空。", "你的头顶没有恒星经过。", "只有夜空。", "夜空暂时归于沉寂。"],
             en: ["At this moment, only deep space.", "No stars are passing overhead.", "Only the night sky.", "The night sky temporarily returns to silence."],
             ja: ["今は、深宇宙があるだけだ。", "頭上を通過する星はない。", "ただ、夜空。", "夜空は一時的に静寂に包まれている。"]
         };
-        return getRandomTemplate(emptyTemplates[lang]);
+        return returnCopy(getRandomTemplate(emptyTemplates[targetLang]));
     }
 
     const { name, distanceStr, isPlanet, id, isSatellite, con } = celestialObj;
@@ -65,26 +83,26 @@ export function generateCopy(celestialObj, lang = 'zh') {
     let conNameJa = "";
 
     if (isPlanet && planetMap[id]) {
-        localizedName = planetMap[id][lang];
-        if (lang === 'en') {
+        localizedName = planetMap[id][targetLang];
+        if (targetLang === 'en') {
             localizedDistance = distanceStr.replace('亿公里', '00 million km').replace('万公里', '0,000 km').replace('公里', ' km');
-        } else if (lang === 'ja') {
+        } else if (targetLang === 'ja') {
             localizedDistance = distanceStr.replace('亿公里', '億km').replace('万公里', '万km').replace('公里', 'km');
         }
     } else if (starMap[id]) {
-        localizedName = starMap[id][lang];
-        if (lang === 'en') localizedDistance = distanceStr.replace('光年', ' light-years');
-        else if (lang === 'ja') localizedDistance = distanceStr.replace('光年', '光年');
+        localizedName = starMap[id][targetLang];
+        if (targetLang === 'en') localizedDistance = distanceStr.replace('光年', ' light-years');
+        else if (targetLang === 'ja') localizedDistance = distanceStr.replace('光年', '光年');
     } else if (isSatellite) {
         let cleanName = name.trim();
         if (satMap[cleanName]) {
-            localizedName = satMap[cleanName][lang];
+            localizedName = satMap[cleanName][targetLang];
         } else if (cleanName.startsWith('STARLINK')) {
-            if (lang === 'zh') localizedName = cleanName.replace('STARLINK', '星链');
-            else if (lang === 'ja') localizedName = cleanName.replace('STARLINK', 'スターリンク');
+            if (targetLang === 'zh') localizedName = cleanName.replace('STARLINK', '星链');
+            else if (targetLang === 'ja') localizedName = cleanName.replace('STARLINK', 'スターリンク');
         }
-        if (lang === 'en') localizedDistance = distanceStr.replace('公里', ' km');
-        else if (lang === 'ja') localizedDistance = distanceStr.replace('公里', 'km');
+        if (targetLang === 'en') localizedDistance = distanceStr.replace('公里', ' km');
+        else if (targetLang === 'ja') localizedDistance = distanceStr.replace('公里', 'km');
     } else {
         // HYG Star (constellation mapping)
         isAnonymousStar = true;
@@ -96,8 +114,8 @@ export function generateCopy(celestialObj, lang = 'zh') {
                 conNameJa = conData['ja'];
             }
         }
-        if (lang === 'en') localizedDistance = distanceStr.replace('光年', ' light-years');
-        else if (lang === 'ja') localizedDistance = distanceStr.replace('光年', '光年');
+        if (targetLang === 'en') localizedDistance = distanceStr.replace('光年', ' light-years');
+        else if (targetLang === 'ja') localizedDistance = distanceStr.replace('光年', '光年');
     }
 
     // 1. Sun & Moon Templates
@@ -107,7 +125,7 @@ export function generateCopy(celestialObj, lang = 'zh') {
             en: ["The Sun is shining."],
             ja: ["太陽が輝いている。"]
         };
-        return getRandomTemplate(templates[lang]);
+        return returnCopy(getRandomTemplate(templates[targetLang]));
     }
     if (id === 'Moon') {
         const templates = {
@@ -115,7 +133,7 @@ export function generateCopy(celestialObj, lang = 'zh') {
             en: ["The Moon is above you.", `380,000 km away, the Moon is moving slowly.`],
             ja: ["月が上空にある。", `38 万km 先で、月がゆっくりと移動している。`]
         };
-        return getRandomTemplate(templates[lang]);
+        return returnCopy(getRandomTemplate(templates[targetLang]));
     }
 
     // 2. Planets Templates
@@ -137,7 +155,7 @@ export function generateCopy(celestialObj, lang = 'zh') {
                 `${localizedName}が太陽の光を反射している。`
             ]
         };
-        return getRandomTemplate(templates[lang]);
+        return returnCopy(getRandomTemplate(templates[targetLang]));
     }
 
     // 3. Human Orbit Objects (Satellites) Templates
@@ -154,7 +172,7 @@ export function generateCopy(celestialObj, lang = 'zh') {
             ],
             ja: [
                 `上空 ${localizedDistance}、${localizedName}が高速で飛行している。`,
-                `上空を、${localizedName}が移動している。`
+                `上空を、${localizedName}が移动している。`
             ]
         };
         if (isManned) {
@@ -162,7 +180,7 @@ export function generateCopy(celestialObj, lang = 'zh') {
             templates.en.push(`A human-crewed space station (${localizedName}) is passing overhead.`);
             templates.ja.push(`人類を乗せた宇宙ステーション（${localizedName}）が頭上を通過している。`);
         }
-        return getRandomTemplate(templates[lang]);
+        return returnCopy(getRandomTemplate(templates[targetLang]));
     }
 
     // 4. Deep Space Stars Templates
@@ -182,7 +200,7 @@ export function generateCopy(celestialObj, lang = 'zh') {
             ],
             ja: [
                 `${localizedDistance}先、${localizedName}が上空を通過している。`,
-                `${localizedName}からの光は、${numericDistance} 年の旅を終えた。`,
+                `${localizedName}からの光は、${numericDistance} 年の旅を终えた。`,
                 `今この瞬間、あなたから ${localizedDistance} 離れた、${localizedName}。`
             ]
         };
@@ -221,5 +239,5 @@ export function generateCopy(celestialObj, lang = 'zh') {
         };
     }
     
-    return getRandomTemplate(starTemplates[lang]);
+    return returnCopy(getRandomTemplate(starTemplates[targetLang]));
 }
