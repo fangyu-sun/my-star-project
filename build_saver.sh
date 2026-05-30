@@ -5,6 +5,8 @@ ACTION=$1
 BUNDLE_ID="com.fangyu.MyUniverseSaver"
 USER_SAVER_PATH="$HOME/Library/Screen Savers/MyUniverseSaver.saver"
 SYS_SAVER_PATH="/Library/Screen Savers/MyUniverseSaver.saver"
+CODESIGN_IDENTITY="${CODESIGN_IDENTITY:--}"
+SWIFT_MODULE_CACHE="${TMPDIR:-/tmp}/MyUniverseSaverSwiftModuleCache"
 
 print_usage() {
     echo "======================================================"
@@ -57,13 +59,51 @@ fi
 
 if [ "$ACTION" == "--install-dev" ]; then
     BUILD_TIMESTAMP=$(date +%s)
+    mkdir -p "$SWIFT_MODULE_CACHE"
     
     echo "======================================================"
     echo "🚀 Building MyUniverseSaver (Timestamp: $BUILD_TIMESTAMP)"
     echo "======================================================"
     
     echo "[1/7] Building Web Project..."
-    npm run build
+    npx vite build --config vite.screensaver.config.js
+    
+    echo "[1.5/7] Verifying classic script compliance..."
+    
+    # 1. Verify no type="module" in index.html
+    if grep -q 'type="module"' dist/index.html; then
+        echo "❌ COMPLIANCE ERROR: 'type=\"module\"' found in dist/index.html!"
+        exit 1
+    fi
+    
+    # 2. Verify no crossorigin in index.html
+    if grep -q 'crossorigin' dist/index.html; then
+        echo "❌ COMPLIANCE ERROR: 'crossorigin' found in dist/index.html!"
+        exit 1
+    fi
+    
+    # 3. Verify no modulepreload in index.html
+    if grep -q 'modulepreload' dist/index.html; then
+        echo "❌ COMPLIANCE ERROR: 'modulepreload' found in dist/index.html!"
+        exit 1
+    fi
+    
+    # 4. Verify no statements with 'import' or 'export' in statement contexts inside assets JS files
+    JS_FILE=$(ls dist/assets/*.js | head -n 1)
+    if [ -n "$JS_FILE" ]; then
+        if grep -q -E '(^|[ ;])import[ (]' "$JS_FILE"; then
+            echo "❌ COMPLIANCE ERROR: 'import' statement detected in $JS_FILE!"
+            exit 1
+        fi
+        if grep -q -E '(^|[ ;])export[ {]' "$JS_FILE"; then
+            echo "❌ COMPLIANCE ERROR: 'export' statement detected in $JS_FILE!"
+            exit 1
+        fi
+        echo "✅ Classic script compliance verified successfully!"
+    else
+        echo "❌ ERROR: No JS asset found in dist/assets!"
+        exit 1
+    fi
     
     echo "[2/7] Preparing bundle directory..."
     rm -rf MyUniverseSaver.saver
@@ -110,6 +150,7 @@ EOF
     echo "  -> Compiling for x86_64 (Intel)..."
     swiftc \
       -target x86_64-apple-macos11.0 \
+      -module-cache-path "$SWIFT_MODULE_CACHE" \
       -emit-library \
       -o MyUniverseSaver_x86_64 \
       -framework ScreenSaver -framework WebKit -framework Cocoa \
@@ -119,6 +160,7 @@ EOF
     echo "  -> Compiling for arm64 (Apple Silicon)..."
     swiftc \
       -target arm64-apple-macos11.0 \
+      -module-cache-path "$SWIFT_MODULE_CACHE" \
       -emit-library \
       -o MyUniverseSaver_arm64 \
       -framework ScreenSaver -framework WebKit -framework Cocoa \
@@ -134,7 +176,7 @@ EOF
     # IMPORTANT: Ensure executable permission
     chmod +x MyUniverseSaver.saver/Contents/MacOS/MyUniverseSaver
       
-    echo "[6/7] Verifying structural integrity..."
+    echo "[6/8] Verifying structural integrity..."
     
     # Bundle verification
     if [ ! -f "MyUniverseSaver.saver/Contents/Resources/web/index.html" ]; then
@@ -184,10 +226,26 @@ EOF
     echo "✅ Info.plist CFBundleExecutable: $EXECUTABLE_NAME"
     echo "✅ Executable file exists and is executable."
     echo "✅ Objective-C class MyUniverseView successfully exported."
+
+    echo "[7/8] Signing screen saver bundle..."
+    codesign --force --deep --sign "$CODESIGN_IDENTITY" \
+      --identifier "$BUNDLE_ID" \
+      MyUniverseSaver.saver
+
+    if ! codesign --verify --deep --strict --verbose=4 MyUniverseSaver.saver; then
+        echo "❌ ERROR: codesign verification failed for MyUniverseSaver.saver."
+        exit 1
+    fi
+    echo "✅ Code signature verified."
     
-    echo "[7/7] Installing & Clearing caches..."
+    echo "[8/8] Installing & Clearing caches..."
     clean_cache
     cp -R MyUniverseSaver.saver "$USER_SAVER_PATH"
+
+    if ! codesign --verify --deep --strict --verbose=4 "$USER_SAVER_PATH"; then
+        echo "❌ ERROR: installed saver failed codesign verification."
+        exit 1
+    fi
     
     echo "======================================================"
     echo "✅ Install Complete!"

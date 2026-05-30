@@ -536,7 +536,7 @@ Normal
 
 ## 12. Runtime Display
 
-底部统一显示：
+顶部统一显示：
 
 City · Local Time
 
