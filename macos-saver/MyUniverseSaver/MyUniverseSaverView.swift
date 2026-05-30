@@ -147,13 +147,17 @@ public class MyUniverseView: ScreenSaverView, CLLocationManagerDelegate {
         let userContentController = WKUserContentController()
         userContentController.addUserScript(userScript)
         webConfiguration.userContentController = userContentController
-        webConfiguration.preferences.setValue(true, forKey: "allowFileAccessFromFileURLs")
         
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
             let wv = WKWebView(frame: self.bounds, configuration: webConfiguration)
             wv.autoresizingMask = [.width, .height]
-            wv.setValue(false, forKey: "drawsBackground")
+            
+            // 安全设置私有属性，防止在 Extension 沙盒中因不支持而抛出无法捕获的 Exception 导致崩溃
+            if wv.responds(to: Selector(("setDrawsBackground:"))) {
+                wv.setValue(false, forKey: "drawsBackground")
+            }
+            
             self.addSubview(wv)
             self.webView = wv
             
