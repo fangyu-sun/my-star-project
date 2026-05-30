@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>宇宙状态播报器 (屏保)</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@300;400&family=Inter:wght@300&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/style.css">
+  </head>
+  <body>
+    <div id="app">
+      <div id="broadcaster" class="screen active">
+        <div id="location-time-info"></div>
+        <div class="zenith-dot"></div>
+        <h1 id="main-copy"></h1>
+        <div id="meta-info"></div>
+      </div>
+    </div>
+    <script type="module" src="/src/entry-screensaver.js"></script>
+  </body>
+</html>
