@@ -2,11 +2,97 @@ import '../style.css'
 import { getZenithCandidates, updateCandidateAltitude } from './astronomy.js'
 import { generateCopy } from './copywriter.js'
 import tzlookup from 'tz-lookup'
+
+// Helper function to check if debug mode is active
+function isDebugActive() {
+  if (typeof window !== 'undefined' && window.MY_UNIVERSE_CONFIG && window.MY_UNIVERSE_CONFIG.debug) {
+    return true;
+  }
+  return false;
+}
+
+// --------------------- Forensics Logging & Handlers ---------------------
+window.onerror = function(msg, src, line, col, err) {
+  if (isDebugActive()) {
+    console.error(
+      "[GLOBAL ERROR DETAIL]",
+      msg,
+      src,
+      line,
+      col,
+      err ? err.stack : "no stack"
+    );
+  }
+};
+
+window.addEventListener("unhandledrejection", e => {
+  if (isDebugActive()) {
+    console.error("[PROMISE ERROR]", e.reason);
+  }
+});
+
+window.addEventListener(
+  "error",
+  function(e) {
+    if (isDebugActive()) {
+      console.error(
+        "[RESOURCE ERROR]",
+        e.target?.src ||
+        e.target?.href ||
+        e.message
+      );
+    }
+  },
+  true
+);
+
+// Global scope module-level variables
+let runtimeConfig;
+let isScreensaverModeActive;
+let currentLang;
+let introScreen;
+let loadingScreen;
+let broadcasterScreen;
+let mainCopyEl;
+let metaInfoEl;
+let locationTimeInfoEl;
+let startBtn;
+let startBroadcasterSession;
 let activeSatellites = [];
 
+// --------------------- Safety Helpers (macOS ScreenSaver Sandbox Protection) ---------------------
+function getRuntimeConfig() {
+  if (typeof window !== 'undefined' && window.MY_UNIVERSE_CONFIG) {
+    return window.MY_UNIVERSE_CONFIG;
+  }
+  return { runtime: 'web' };
+}
+
+function safeLocalStorageGet(key, fallback = null) {
+  try {
+    if (typeof window === 'undefined' || !window.localStorage) return fallback;
+    const value = window.localStorage.getItem(key);
+    return value === null ? fallback : value;
+  } catch (e) {
+    return fallback;
+  }
+}
+
+function safeLocalStorageSet(key, value) {
+  try {
+    if (typeof window === 'undefined' || !window.localStorage) return false;
+    // In Screensaver Mode, prohibit writing to localStorage
+    const config = getRuntimeConfig();
+    if (config && config.runtime === 'screensaver') return false;
+    window.localStorage.setItem(key, value);
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
 async function loadActiveSatellites() {
-  if (window.MY_UNIVERSE_CONFIG && window.MY_UNIVERSE_CONFIG.runtime === 'screensaver') {
-    console.log("Screensaver mode: Disabling remote network requests (TLE fetch).");
+  if (isScreensaverModeActive) {
     return;
   }
   try {
@@ -21,7 +107,9 @@ async function loadActiveSatellites() {
       }));
     }
   } catch (e) {
-    console.warn("Failed to fetch dynamic TLEs, falling back to local database.", e);
+    if (isDebugActive()) {
+      console.warn("Failed to fetch dynamic TLEs, falling back to local database.", e);
+    }
   }
   
   try {
@@ -37,12 +125,11 @@ async function loadActiveSatellites() {
       activeSatellites = [...activeSatellites, ...starlinks];
     }
   } catch (err) {
-    console.warn("Failed to fetch Starlink TLEs.", err);
+    if (isDebugActive()) {
+      console.warn("Failed to fetch Starlink TLEs.", err);
+    }
   }
 }
-
-// Start loading immediately on page load
-loadActiveSatellites();
 
 // --------------------- i18n Localization ---------------------
 const UI_TRANSLATIONS = {
@@ -59,6 +146,20 @@ const UI_TRANSLATIONS = {
     range: "距离",
     lat: "纬度",
     lon: "经度"
+  },
+  'zh-TW': {
+    introText: "此應用需要獲取地理位置，<br>以計算此時此刻您上方的宇宙狀態。",
+    startBtn: "開啟連接",
+    geoAcquiring: "正在解析空間坐標...",
+    fallbackCity: "北京 (默認位置)",
+    cachedCity: "緩存位置",
+    geoError: "您的瀏覽器不支援獲取地理位置。",
+    cityUnknown: "未知地點",
+    alt: "仰角",
+    zenithOffset: "天頂偏角",
+    range: "距離",
+    lat: "緯度",
+    lon: "經度"
   },
   en: {
     introText: "This application requires location access<br>to calculate the cosmic state directly above you right now.",
@@ -84,18 +185,15 @@ const UI_TRANSLATIONS = {
     cityUnknown: "未知の場所",
     alt: "仰角",
     zenithOffset: "天頂角",
-    range: "距離",
+    range: "距离",
     lat: "緯度",
     lon: "経度"
   }
 };
 
-let currentLang = localStorage.getItem('zenith_lang') || 'zh';
-
 function applyLanguage() {
   const t = UI_TRANSLATIONS[currentLang];
   
-  // Set lang class on body to allow styling changes based on language
   if (currentLang === 'en') {
     document.body.classList.add('lang-en');
     document.body.classList.remove('lang-zh', 'lang-ja');
@@ -113,7 +211,6 @@ function applyLanguage() {
   if (introTextEl) introTextEl.innerHTML = t.introText;
   if (startBtnEl) startBtnEl.textContent = t.startBtn;
   
-  // Highlight active inline language selector option
   document.querySelectorAll('.lang-inline-opt').forEach(btn => {
     if (btn.getAttribute('data-lang') === currentLang) {
       btn.classList.add('active');
@@ -123,88 +220,108 @@ function applyLanguage() {
   });
 }
 
-// --------------------- DOM Elements & Routing ---------------------
-const introScreen = document.getElementById('intro');
-const loadingScreen = document.getElementById('loading');
-const broadcasterScreen = document.getElementById('broadcaster');
-
-const mainCopyEl = document.getElementById('main-copy');
-const metaInfoEl = document.getElementById('meta-info');
-const locationTimeInfoEl = document.getElementById('location-time-info');
-const startBtn = document.getElementById('start-btn');
-
 function switchScreen(screenEl) {
   document.querySelectorAll('.screen').forEach(el => el.classList.remove('active'));
-  screenEl.classList.add('active');
+  if (screenEl) screenEl.classList.add('active');
 }
 
-// Initialize language representation
-applyLanguage();
+function initializeZenith() {
+  runtimeConfig = getRuntimeConfig();
+  isScreensaverModeActive = runtimeConfig.runtime === 'screensaver';
 
-// Event listeners for inline language option buttons
-document.querySelectorAll('.lang-inline-opt').forEach(btn => {
-  btn.addEventListener('click', (e) => {
-    const selectedLang = e.currentTarget.getAttribute('data-lang');
-    if (selectedLang === currentLang) return; // Ignore clicks on the already active language
-    
-    // Visually toggle active class immediately on both language selectors across pages
-    document.querySelectorAll('.lang-inline-opt').forEach(b => b.classList.remove('active'));
-    document.querySelectorAll(`.lang-inline-opt[data-lang="${selectedLang}"]`).forEach(el => el.classList.add('active'));
-    
-    currentLang = selectedLang;
-    localStorage.setItem('zenith_lang', selectedLang);
-    
-    // Smooth slow breathing transition for all text elements on active screen
-    const introTextEl = document.getElementById('intro-text');
-    const startBtnEl = document.getElementById('start-btn');
-    const mainCopyEl = document.getElementById('main-copy');
-    const locationTimeInfoEl = document.getElementById('location-time-info');
-    const metaInfoEl = document.getElementById('meta-info');
-    
-    const elementsToFade = [introTextEl, startBtnEl, mainCopyEl, locationTimeInfoEl, metaInfoEl];
-    
-    elementsToFade.forEach(el => {
-      if (el) el.classList.add('text-breath-out');
-    });
-    
-    // Wait for the slow fade-out breathing curve (800ms) to complete before changing text and fading back in
-    setTimeout(() => {
-      applyLanguage();
+  loadActiveSatellites();
+
+  currentLang = runtimeConfig.language || safeLocalStorageGet('zenith_lang', 'zh');
+
+  introScreen = document.getElementById('intro');
+  loadingScreen = document.getElementById('loading');
+  broadcasterScreen = document.getElementById('broadcaster');
+
+  mainCopyEl = document.getElementById('main-copy');
+  metaInfoEl = document.getElementById('meta-info');
+  locationTimeInfoEl = document.getElementById('location-time-info');
+  startBtn = document.getElementById('start-btn');
+
+  applyLanguage();
+
+  // Event listeners for inline language selector option buttons
+  document.querySelectorAll('.lang-inline-opt').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const selectedLang = e.currentTarget.getAttribute('data-lang');
+      if (selectedLang === currentLang) return;
       
-      // If we are on the broadcaster screen, force immediate calculation refresh & dynamic geocoding
-      if (typeof window.triggerZenithUpdate === 'function') {
-        window.triggerZenithUpdate();
-      }
-      if (typeof window.triggerGeocodeRefine === 'function') {
-        window.triggerGeocodeRefine();
-      }
+      document.querySelectorAll('.lang-inline-opt').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll(`.lang-inline-opt[data-lang="${selectedLang}"]`).forEach(el => el.classList.add('active'));
+      
+      currentLang = selectedLang;
+      safeLocalStorageSet('zenith_lang', selectedLang);
+      
+      const introTextEl = document.getElementById('intro-text');
+      const startBtnEl = document.getElementById('start-btn');
+      const mainCopyEl = document.getElementById('main-copy');
+      const locationTimeInfoEl = document.getElementById('location-time-info');
+      const metaInfoEl = document.getElementById('meta-info');
+      
+      const elementsToFade = [introTextEl, startBtnEl, mainCopyEl, locationTimeInfoEl, metaInfoEl];
       
       elementsToFade.forEach(el => {
-        if (el) el.classList.remove('text-breath-out');
+        if (el) el.classList.add('text-breath-out');
       });
-    }, 2500);
+      
+      setTimeout(() => {
+        applyLanguage();
+        
+        if (typeof window.triggerZenithUpdate === 'function') {
+          window.triggerZenithUpdate();
+        }
+        if (typeof window.triggerGeocodeRefine === 'function') {
+          window.triggerGeocodeRefine();
+        }
+        
+        elementsToFade.forEach(el => {
+          if (el) el.classList.remove('text-breath-out');
+        });
+      }, 2500);
+    });
   });
-});
 
-// --------------------- Connection Initiation ---------------------
-let startBroadcasterSession;
+  if (startBtn) {
+    startBtn.addEventListener('click', () => {
+      const t = UI_TRANSLATIONS[currentLang];
+      if (!navigator.geolocation) {
+        alert(t.geoError);
+        return;
+      }
 
-startBtn.addEventListener('click', () => {
-  const t = UI_TRANSLATIONS[currentLang];
-  if (!navigator.geolocation) {
-    alert(t.geoError);
-    return;
+      startBtn.textContent = t.geoAcquiring;
+      startBtn.style.pointerEvents = "none";
+
+      setTimeout(() => {
+        startBroadcasterSession(false);
+      }, 1500);
+    });
   }
 
-  // Ceremony feedback
-  startBtn.textContent = t.geoAcquiring;
-  startBtn.style.pointerEvents = "none";
+  // --------------------- Screensaver Mode Init ---------------------
+  if (isScreensaverModeActive) {
+    document.body.classList.add('mode-screensaver');
+    
+    if (runtimeConfig.language) {
+      currentLang = runtimeConfig.language;
+      applyLanguage();
+    }
+    
+    if (runtimeConfig.brightness) {
+      document.body.style.filter = `brightness(${runtimeConfig.brightness})`;
+    }
 
-  setTimeout(() => {
-    startBroadcasterSession(false);
-  }, 1500);
-});
+    document.getElementById("intro")?.classList.remove("active");
 
+    startBroadcasterSession(true, runtimeConfig);
+  }
+}
+
+// --------------------- Connection Initiation ---------------------
 startBroadcasterSession = function(isScreensaverMode = false, config = {}) {
   const t = UI_TRANSLATIONS[currentLang];
   let currentLat, currentLon, cityString, isCityDynamic, resolvedTimezone;
@@ -213,18 +330,27 @@ startBroadcasterSession = function(isScreensaverMode = false, config = {}) {
     currentLat = typeof config.latitude === 'number' ? config.latitude : 51.4779;
     currentLon = typeof config.longitude === 'number' ? config.longitude : -0.0015;
     
-    // Resolve timezone via injected config, otherwise fallback to offline lookup
     resolvedTimezone = config.timezone && config.timezone !== "" ? config.timezone : tzlookup(currentLat, currentLon);
     
     if (config.locationMode === 'city' || config.locationMode === 'default') {
       let parts = [config.cityName, config.regionName, config.countryName].filter(Boolean);
       cityString = parts.join(", ");
     } else if (config.locationMode === 'runtimeCurrentLocation') {
-      const isZh = config.language === 'zh' || config.language === 'zh-TW';
-      cityString = isZh ? "当前位置 (设备实时)" : "Current Location (Device)";
+      if (config.language === 'zh-TW') {
+        cityString = "當前位置 (設備即時)";
+      } else if (config.language === 'zh') {
+        cityString = "当前位置 (设备实时)";
+      } else {
+        cityString = "Current Location (Device)";
+      }
     } else if (config.locationMode === 'currentLocation' || config.locationMode === 'savedCurrentLocation' || config.locationMode === 'currentPosition') {
-      const isZh = config.language === 'zh' || config.language === 'zh-TW';
-      cityString = isZh ? "当前位置 (已保存)" : "Current Location (Saved)";
+      if (config.language === 'zh-TW') {
+        cityString = "當前位置 (已保存)";
+      } else if (config.language === 'zh') {
+        cityString = "当前位置 (已保存)";
+      } else {
+        cityString = "Current Location (Saved)";
+      }
     } else {
       cityString = `${Math.abs(currentLon).toFixed(2)}°${currentLon >= 0 ? 'E' : 'W'}, ${Math.abs(currentLat).toFixed(2)}°${currentLat >= 0 ? 'N' : 'S'}`;
     }
@@ -258,17 +384,15 @@ startBroadcasterSession = function(isScreensaverMode = false, config = {}) {
       document.body.appendChild(debugDiv);
     }
   } else {
-    // 1. Immediately read cached or default coordinates
-    const cachedLatStr = localStorage.getItem('zenith_last_lat');
-    const cachedLonStr = localStorage.getItem('zenith_last_lon');
+    const cachedLatStr = safeLocalStorageGet('zenith_last_lat');
+    const cachedLonStr = safeLocalStorageGet('zenith_last_lon');
     
     if (cachedLatStr && cachedLonStr) {
       currentLat = parseFloat(cachedLatStr);
       currentLon = parseFloat(cachedLonStr);
-      cityString = localStorage.getItem('zenith_last_city') || t.cachedCity;
-      isCityDynamic = !localStorage.getItem('zenith_last_city');
+      cityString = safeLocalStorageGet('zenith_last_city') || t.cachedCity;
+      isCityDynamic = !safeLocalStorageGet('zenith_last_city');
     } else {
-      // Default to Beijing
       currentLat = 39.9042;
       currentLon = 116.4074;
       cityString = t.fallbackCity;
@@ -276,20 +400,21 @@ startBroadcasterSession = function(isScreensaverMode = false, config = {}) {
     }
   }
 
-  // State variables for the dome carousel
   let domeCandidates = [];
   let currentDomeIndex = 0;
 
   function updateTime() {
     const date = new Date();
-    const localeStr = currentLang === 'zh' ? 'zh-CN' : currentLang === 'ja' ? 'ja-JP' : 'en-US';
+    const localeStr = currentLang === 'zh-TW' ? 'zh-TW' : currentLang === 'zh' ? 'zh-CN' : currentLang === 'ja' ? 'ja-JP' : 'en-US';
     
     let timeOptions = { hour: '2-digit', minute: '2-digit', hour12: false };
     if (isScreensaverMode && resolvedTimezone) {
       try {
         timeOptions.timeZone = resolvedTimezone;
       } catch (e) {
-        console.warn("Invalid timezone from config/tz-lookup:", resolvedTimezone);
+        if (isDebugActive()) {
+          console.warn("Invalid timezone from config/tz-lookup:", resolvedTimezone);
+        }
       }
     }
     
@@ -297,8 +422,8 @@ startBroadcasterSession = function(isScreensaverMode = false, config = {}) {
     
     let displayCity = cityString;
     if (isCityDynamic) {
-      displayCity = currentLang === 'zh' ? '北京' : currentLang === 'ja' ? '北京' : 'Beijing';
-      if (cachedLatStr && cachedLonStr && !localStorage.getItem('zenith_last_city')) {
+      displayCity = (currentLang === 'zh' || currentLang === 'zh-TW') ? '北京' : currentLang === 'ja' ? '北京' : 'Beijing';
+      if (cachedLatStr && cachedLonStr && !safeLocalStorageGet('zenith_last_city')) {
         displayCity = UI_TRANSLATIONS[currentLang].cachedCity;
       }
     }
@@ -328,7 +453,9 @@ startBroadcasterSession = function(isScreensaverMode = false, config = {}) {
     try {
       domeCandidates = getZenithCandidates(currentLat, currentLon, date, activeSatellites) || [];
     } catch (e) {
-      console.error(e);
+      if (isDebugActive()) {
+        console.error(e);
+      }
       domeCandidates = [];
     }
   }
@@ -402,7 +529,7 @@ startBroadcasterSession = function(isScreensaverMode = false, config = {}) {
   function startCarousel() {
     if (carouselIntervalId) clearInterval(carouselIntervalId);
     let freq = isScreensaverMode && config.displayFrequency ? config.displayFrequency * 1000 : 10000;
-    carouselIntervalId = setInterval(carouselTick, freq); // breathing cycle
+    carouselIntervalId = setInterval(carouselTick, freq);
   }
 
   broadcasterScreen.addEventListener('click', (e) => {
@@ -413,20 +540,19 @@ startBroadcasterSession = function(isScreensaverMode = false, config = {}) {
     }
   });
 
-  // Store globally so it can be invoked during real-time language transitions
   window.triggerZenithUpdate = () => {
     updateTime();
     renderCurrentCandidate();
   };
 
-  // Background geocode refiner that can be invoked during language transitions
   window.triggerGeocodeRefine = function() {
+    if (isScreensaverModeActive) return;
     if (currentLat && currentLon) {
       fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${currentLat}&longitude=${currentLon}&localityLanguage=${currentLang}`)
         .then(res => res.json())
         .then(data => {
           cityString = data.city || data.locality || data.principalSubdivision || UI_TRANSLATIONS[currentLang].cityUnknown;
-          localStorage.setItem('zenith_last_city', cityString);
+          safeLocalStorageSet('zenith_last_city', cityString);
           isCityDynamic = false;
           updateTime();
         })
@@ -434,23 +560,19 @@ startBroadcasterSession = function(isScreensaverMode = false, config = {}) {
     }
   };
 
-  // 3. Immediately render the cached sky state and transition to broadcaster
   fetchDomeCandidates();
   updateTime();
   renderCurrentCandidate();
   switchScreen(broadcasterScreen);
 
-  // 4. Start the clocks and carousels
   setInterval(updateTime, 1000);
   setInterval(fetchDomeCandidates, 60000);
   
-  // Offset the first tick by 2.5s so text swapping perfectly aligns with the dimmest point of the CSS animation
   setTimeout(() => {
     carouselTick();
     startCarousel();
   }, 2500);
 
-  // 5. Query for fresh real-time coordinates in the background silently
   if (!isScreensaverMode && navigator.geolocation) {
     navigator.geolocation.getCurrentPosition(
       (position) => {
@@ -459,14 +581,14 @@ startBroadcasterSession = function(isScreensaverMode = false, config = {}) {
         
         currentLat = freshLat;
         currentLon = freshLon;
-        localStorage.setItem('zenith_last_lat', freshLat);
-        localStorage.setItem('zenith_last_lon', freshLon);
+        safeLocalStorageSet('zenith_last_lat', freshLat);
+        safeLocalStorageSet('zenith_last_lon', freshLon);
 
         fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${freshLat}&longitude=${freshLon}&localityLanguage=${currentLang}`)
           .then(res => res.json())
           .then(data => {
             cityString = data.city || data.locality || data.principalSubdivision || UI_TRANSLATIONS[currentLang].cityUnknown;
-            localStorage.setItem('zenith_last_city', cityString);
+            safeLocalStorageSet('zenith_last_city', cityString);
             isCityDynamic = false;
             updateTime();
           })
@@ -476,43 +598,23 @@ startBroadcasterSession = function(isScreensaverMode = false, config = {}) {
             updateTime();
           });
         
-        // Instantly trigger an update with the fresh coordinates
         fetchDomeCandidates();
         currentDomeIndex = 0;
         renderCurrentCandidate();
       },
       (error) => {
-        console.warn("Background geolocation refresh failed or was declined.", error);
-        // We do not show any annoying error alert since the cached/default location is already running beautifully!
+        if (isDebugActive()) {
+          console.warn("Background geolocation refresh failed or was declined.", error);
+        }
       },
       { enableHighAccuracy: false, timeout: 15000, maximumAge: 0 }
     );
   }
-  };
+};
 
-  // --------------------- Screensaver Mode Init ---------------------
-  function getRuntimeConfig() {
-    if (typeof window !== 'undefined' && window.MY_UNIVERSE_CONFIG) {
-      return window.MY_UNIVERSE_CONFIG;
-    }
-    return { runtime: 'web' };
-  }
-
-  const runtimeConfig = getRuntimeConfig();
-  const isScreensaverModeActive = runtimeConfig.runtime === 'screensaver';
-
-  if (isScreensaverModeActive) {
-    document.body.classList.add('mode-screensaver');
-    
-    if (runtimeConfig.language) {
-      currentLang = runtimeConfig.language;
-      applyLanguage();
-    }
-    
-    if (runtimeConfig.brightness) {
-      document.body.style.filter = `brightness(${runtimeConfig.brightness})`;
-    }
-
-    document.getElementById('intro').classList.remove('active');
-    startBroadcasterSession(true, runtimeConfig);
-  }
+// Start execution once DOM is ready
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initializeZenith);
+} else {
+  initializeZenith();
+}
