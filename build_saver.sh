@@ -106,15 +106,30 @@ EOF
     cp -R dist/* MyUniverseSaver.saver/Contents/Resources/web/
     cp macos-saver/Resources/cities.json MyUniverseSaver.saver/Contents/Resources/cities.json
     
-    echo "[5/7] Compiling Swift..."
+    echo "[5/7] Compiling Swift (Universal Binary)..."
+    echo "  -> Compiling for x86_64 (Intel)..."
     swiftc \
       -target x86_64-apple-macos11.0 \
-      -target arm64-apple-macos11.0 \
       -emit-library \
-      -o MyUniverseSaver.saver/Contents/MacOS/MyUniverseSaver \
+      -o MyUniverseSaver_x86_64 \
       -framework ScreenSaver -framework WebKit -framework Cocoa \
       macos-saver/MyUniverseSaver/MyUniverseSaverView.swift \
       macos-saver/MyUniverseSaver/OptionsSheet.swift
+      
+    echo "  -> Compiling for arm64 (Apple Silicon)..."
+    swiftc \
+      -target arm64-apple-macos11.0 \
+      -emit-library \
+      -o MyUniverseSaver_arm64 \
+      -framework ScreenSaver -framework WebKit -framework Cocoa \
+      macos-saver/MyUniverseSaver/MyUniverseSaverView.swift \
+      macos-saver/MyUniverseSaver/OptionsSheet.swift
+      
+    echo "  -> Merging architectures via lipo..."
+    lipo -create MyUniverseSaver_x86_64 MyUniverseSaver_arm64 -output MyUniverseSaver.saver/Contents/MacOS/MyUniverseSaver
+    
+    # Cleanup temporary compile artifacts
+    rm -f MyUniverseSaver_x86_64 MyUniverseSaver_arm64
       
     # IMPORTANT: Ensure executable permission
     chmod +x MyUniverseSaver.saver/Contents/MacOS/MyUniverseSaver
