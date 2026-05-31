@@ -220,7 +220,7 @@ export function generateCopy(celestialObj, lang = 'zh') {
             ],
             ja: [
                 `${localizedDistance}先、${localizedName}が上空を通過している。`,
-                `${localizedName}からの光は、${numericDistance} 年的旅を终えた。`,
+                `${localizedName}からの光は、${numericDistance} 年の旅を终えた。`,
                 `今この瞬間、あなたから ${localizedDistance} 離れた、${localizedName}。`
             ]
         };
