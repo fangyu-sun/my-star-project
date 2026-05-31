@@ -1,19 +1,5 @@
 import { constellations } from './data/constellations.js';
 
-function toTraditional(text) {
-    if (!text) return "";
-    const replacements = {
-        '个': '個', '颗': '顆', '国': '國', '际': '際', '载': '載', '类': '類', '头': '頭', '顶': '頂',
-        '飞': '飛', '时': '時', '离': '離', '来': '來', '经': '經', '过': '過', '万': '萬', '亿': '億',
-        '处': '處', '缓': '緩', '动': '動', '阳': '陽', '于': '於', '号': '號', '仅': '僅', '没': '沒',
-        '恒': '恆', '暂': '暫', '归': '歸', '链': '鏈',
-        '宝': '寶', '鹰': '鷹', '马': '馬', '鱼': '魚', '仪': '儀', '镜': '鏡', '双': '雙', '绘': '繪',
-        '网': '網', '罗': '羅', '规': '規', '龙': '龍', '门': '門', '蝎': '蠍', '长': '長',
-        '钟': '鐘', '盘': '盤', '织': '織', '参': '參', '宿': '宿'
-    };
-    return text.split('').map(char => replacements[char] || char).join('');
-}
-
 function getRandomTemplate(templates) {
     return templates[Math.floor(Math.random() * templates.length)];
 }
@@ -120,7 +106,7 @@ export function generateCopy(celestialObj, lang = 'zh') {
                 conNameZh = conData['zh'];
                 conNameEn = conData['en'];
                 conNameJa = conData['ja'];
-                conNameTw = toTraditional(conData['zh']);
+                conNameTw = conData['zh-TW'];
             }
         }
         if (lang === 'en') localizedDistance = distanceStr.replace('光年', ' light-years');
@@ -234,7 +220,7 @@ export function generateCopy(celestialObj, lang = 'zh') {
             ],
             ja: [
                 `${localizedDistance}先、${localizedName}が上空を通過している。`,
-                `${localizedName}からの光は、${numericDistance} 年の旅を终えた。`,
+                `${localizedName}からの光は、${numericDistance} 年的旅を终えた。`,
                 `今この瞬間、あなたから ${localizedDistance} 離れた、${localizedName}。`
             ]
         };
